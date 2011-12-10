@@ -4,20 +4,6 @@
 
 static BOOL shouldOverrideUnavailableText = NO;
 
-/*%hook SBAssistantView
-
-- (void)setConnectionAvailable:(BOOL)available {
-    SPPreferences *preferences = SPLoadPreferences();
-
-    if (!SPPreferencesHasProxyURL(preferences)) {
-        %orig(NO);
-    } else {
-        %orig;
-    }
-}
-
-%end*/
-
 %hook AFConnection
 
 + (BOOL)isAvailable {
