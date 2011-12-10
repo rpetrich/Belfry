@@ -1,4 +1,5 @@
 - uninstaller (prerm; but issues with removing directories since files.txt doesn't include those)
 - speed increases for partialzip (multiple ranges)
 - GUI for installer (or automatic, at install time? discuss)
+- (probably) requires release of new mobilesubstrate to load into assistantd
 - testing!
