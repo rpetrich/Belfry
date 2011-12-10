@@ -1,0 +1,10 @@
+{
+    entry = {
+	bundle = SpirePreferences;
+	cell = PSLinkCell;
+	detail = SPPreferencesListController;
+	icon = SpirePreferences.png;
+	isController = 1;
+	label = Spire;
+    };
+}

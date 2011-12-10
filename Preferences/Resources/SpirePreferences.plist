@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>items</key>
+	<array>
+		<dict>
+			<key>cell</key>
+			<string>PSGroupCell</string>
+			<key>footerText</key>
+			<string>Please note that personal information /will/ be sent through the server URL above.
+
+This may include your location, emails, contacts, messages, calendar, reminders, and voice information.
+
+Please be sure you understand this before entering a proxy URL above.</string>
+			<key>label</key>
+			<string>Spire</string>
+		</dict>
+		<dict>
+			<key>cell</key>
+			<string>PSEditTextCell</string>
+			<key>default</key>
+			<string></string>
+            <key>placeholder</key>
+            <string>http://example.com/</string>
+			<key>defaults</key>
+			<string>com.chpwn.spire.preferences</string>
+            <key>PostNotification</key>
+            <string>com.chpwn.spire.preferences.changed</string>
+			<key>key</key>
+			<string>SPProxyURL</string>
+			<key>label</key>
+			<string>Proxy URL</string>
+		</dict>
+	</array>
+	<key>title</key>
+	<string>Spire</string>
+</dict>
+</plist>
