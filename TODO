@@ -1,3 +1,4 @@
-- uninstaller
+- uninstaller (prerm; but issues with removing directories since files.txt doesn't include those)
+- speed increases for partialzip (multiple ranges)
 - GUI for installer (or automatic, at install time? discuss)
 - testing!
