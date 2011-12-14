@@ -32,11 +32,11 @@ void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPrope
 
 @implementation SPSiriInstaller
 
-- (NSSet *)files {
-    static NSSet *cached = nil;
+- (NSArray *)files {
+    static NSArray *cached = nil;
 
     if (cached == nil) {
-        NSMutableSet *valid = [NSMutableSet set];
+        NSMutableArray *valid = [NSMutableArray array];
         NSArray *files = [[NSString stringWithContentsOfFile:@"/var/spire/files.txt" encoding:NSUTF8StringEncoding error:NULL] componentsSeparatedByString:@"\n"];
 
         for (NSString *file in files) {
@@ -52,57 +52,65 @@ void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPrope
     return cached;
 }
 
-void progress_callback(ZipInfo *info, CDFile *file, size_t progress) {
-    int percent = (progress * 100) / file->compressedSize;
-    NSLog(@"\tdownload progress: %d", percent);
-}
+typedef struct {
+    CDFile *lastFile;
+    FILE *fd;
+    size_t charactersToSkip;
+} downloadCurrentFileData;
 
 size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, size_t size, void *userInfo)
 {
-	return fwrite(buffer, size, 1, userInfo) ? size : 0;
+	downloadCurrentFileData *fileData = userInfo;
+	if (fileData->lastFile != file) {
+		NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+		if (fileData->lastFile)
+			fclose(fileData->fd);
+		fileData->lastFile = file;
+		if (file) {
+			unsigned char *zipFileName = PartialZipCopyFileName(info, file);
+			NSString *diskFileName = [kSPWorkingDirectory stringByAppendingFormat:@"%s", zipFileName + fileData->charactersToSkip];
+			NSLog(@"Downloading file %s...", zipFileName + fileData->charactersToSkip);
+			free(zipFileName);
+		    [[NSFileManager defaultManager] createDirectoryAtPath:[diskFileName stringByDeletingLastPathComponent] withIntermediateDirectories:YES attributes:nil error:NULL];
+			fileData->fd = fopen([diskFileName UTF8String], "wb");
+		}
+		[pool drain];
+	}
+	return fwrite(buffer, size, 1, fileData->fd) ? size : 0;
 }
 
-- (BOOL)downloadFile:(NSString *)path inZip:(ZipInfo *)info intoCachePath:(NSString *)output {
-    NSString *cachePath = [kSPWorkingDirectory stringByAppendingString:output];
-
-    [[NSFileManager defaultManager] createDirectoryAtPath:[cachePath stringByDeletingLastPathComponent] withIntermediateDirectories:YES attributes:nil error:NULL];
-    FILE *fd = fopen([cachePath UTF8String], "wb");
-    if (fd == NULL) { NSLog(@"Unable to write file to cache."); return NO; }
-
-    NSLog(@"Finding file %@...", path);
-    CDFile *file = PartialZipFindFile(info, [path UTF8String]);
-    if (file == NULL) { NSLog(@"Unable to find file."); return NO; }
-    NSLog(@"File found.");
-
-    NSLog(@"Downloading file %@...", path);
-    if (!PartialZipGetFile(info, file, downloadFileCallback, fd)) {
-	    NSLog(@"Unable to download file!");
-	    fclose(fd);
-	    unlink([path UTF8String]);
-	    return NO;
-    }
-    NSLog(@"File downloaded.");
-
-    fclose(fd);
-
-    return YES;
-}
-
-- (BOOL)downloadFiles {
-    BOOL success = YES;
-
+- (ZipInfo *)openZipFile
+{
     NSLog(@"Opening remote ZIP...");
     ZipInfo *info = PartialZipInit([kSPUpdateZIPURL UTF8String]);
+    if (info)
+	    NSLog(@"Remote ZIP opened...");
+	else
+		NSLog(@"Unable to open ZIP!");
+	return info;
+}
 
-    for (NSString *path in [self files]) {
+- (BOOL)downloadFilesFromZip:(ZipInfo *)info {
+    BOOL success = YES;
+
+	NSArray *files = [self files];
+
+	NSInteger count = [files count];
+	CDFile *fileReferences[count];
+	int i = 0;
+    for (NSString *path in files) {
         NSString *zipPath = [kSPUpdateZIPRootPath stringByAppendingString:path];
-
-        NSLog(@"Downloading file into cache: %@", path);
-        success = [self downloadFile:zipPath inZip:info intoCachePath:path];
-        if (!success) { NSLog(@"Unable to download file."); break; }
+        CDFile *file = PartialZipFindFile(info, [zipPath UTF8String]);
+        if (!file) {
+        	NSLog(@"Unable to find file %@", path);
+        	return NO;
+        }
+        fileReferences[i++] = file;
     }
-
-    PartialZipRelease(info);
+    
+	downloadCurrentFileData data = { NULL, NULL, 26 };
+	PartialZipGetFiles(info, fileReferences, count, downloadFileCallback, &data);
+	downloadFileCallback(info, NULL, NULL, 0, &data);
 
     return success;
 }
@@ -204,21 +212,19 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
     return YES;
 }
 
-- (BOOL)setupSharedCache {
+- (BOOL)setupSharedCacheFromZip:(ZipInfo *)info {
     BOOL success = YES;
 
-    // FIXME: this is arbitrary
-    NSString *cachePath = @"dyldcache";
+	NSString *zipPath = [kSPUpdateZIPRootPath stringByAppendingString:@"System/Library/Caches/com.apple.dyld/dyld_shared_cache_armv7"];
+	CDFile *file = PartialZipFindFile(info, [zipPath UTF8String]);
+	if (!file) { NSLog(@"Failed to find dyld_shared_cache_armv7"); return NO; }
 
-    ZipInfo *info = PartialZipInit([kSPUpdateZIPURL UTF8String]);
-    PartialZipSetProgressCallback(info, progress_callback);
-
-    success = [self downloadFile:[kSPUpdateZIPRootPath stringByAppendingString:@"System/Library/Caches/com.apple.dyld/dyld_shared_cache_armv7"] inZip:info intoCachePath:cachePath];
+	downloadCurrentFileData data = { NULL, NULL, 63 };
+	success = PartialZipGetFile(info, file, downloadFileCallback, &data);
     if (!success) { NSLog(@"Failed downloading shared cache."); return success; }
+	downloadFileCallback(info, NULL, NULL, 0, &data);
 
-    PartialZipRelease(info);
-
-    success = [self installItemAtCachePath:cachePath intoPath:@"/var/spire/dyld_shared_cache_armv7"];
+    success = [self installItemAtCachePath:@"dyld_shared_cache_armv7" intoPath:@"/var/spire/dyld_shared_cache_armv7"];
     if (!success) { NSLog(@"Failed installing cache."); return success; }
 
     success = [self applyAlternativeCacheToAppAtPath:"/Applications/Preferences.app/Info.plist"];
@@ -275,19 +281,25 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
 - (BOOL)install {
     BOOL success = YES;
 
-    /*[self cleanUp];
+    [self cleanUp];
 
     success = [self createCache];
     if (!success) { NSLog(@"Failed creating cache."); return success; }
 
-    success = [self downloadFiles];
-    if (!success) { NSLog(@"Failed downloading files."); return success; }*/
+	ZipInfo *info = [self openZipFile];
+	if (!info)
+		return false;
+
+    success = [self downloadFilesFromZip:info];
+    if (!success) { PartialZipRelease(info); NSLog(@"Failed downloading files."); return success; }
 
     success = [self installFiles];
-    if (!success) { NSLog(@"Failed installing files."); return success; }
+    if (!success) { PartialZipRelease(info); NSLog(@"Failed installing files."); return success; }
 
-    success = [self setupSharedCache];
-    if (!success) { NSLog(@"Failed setting up shared cache."); return success; }
+    success = [self setupSharedCacheFromZip:info];
+    if (!success) { PartialZipRelease(info); NSLog(@"Failed setting up shared cache."); return success; }
+    
+    PartialZipRelease(info);
 
     success = [self addCapabilities];
     if (!success) { NSLog(@"Failed adding capabilities."); return success; }
