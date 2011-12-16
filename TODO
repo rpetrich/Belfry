@@ -2,6 +2,5 @@
   - should SpireRemover be run on install failure?
 - (probably) requires release of new mobilesubstrate to load into assistantd
   - alternately, insert ourselves in
-- could WinterBoard overrides of capability files mess us up?
 - finish control file: dependencies, description, support (who?), etc
 - testing!

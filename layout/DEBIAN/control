@@ -1,7 +1,7 @@
 Package: com.chpwn.spire
 Name: Spire
 Pre-Depends: firmware (>= 5.0), firmware (< 5.1)
-Conflicts: gsc.ipad
+Conflicts: gsc.ipad, com.iphonerepocenter.enablemtgesturestheme, com.brbortscheller.homewallpaperkiller, com.brbortscheller.speedbooster, com.iphonerepocenter.disablemultitasking4xtheme, com.modmyi.ipadvoicecontrolenabler, com.modmyi.multitaskingdisabler, com.modmyi.windows7bluepad3as, com.modmyi.windows7bluepadas
 Depends: mobilesubstrate
 Version: 0.0.1
 Architecture: iphoneos-arm
