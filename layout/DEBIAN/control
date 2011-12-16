@@ -1,11 +1,11 @@
 Package: com.chpwn.spire
 Name: Spire
-Pre-Depends: firmware (>= 5.0)
+Pre-Depends: firmware (>= 5.0), firmware (< 5.1)
 Conflicts: gsc.ipad
 Depends: mobilesubstrate
 Version: 0.0.1
 Architecture: iphoneos-arm
-Description: Siri.
+Description: A simple Siri installer, without copyright infringement.
 Maintainer: Grant Paul
 Author: Grant Paul
 Section: System
