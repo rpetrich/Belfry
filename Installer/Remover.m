@@ -243,7 +243,10 @@ int main(int argc, char **argv, char **envp) {
 
     [pool release];
 
-	return (success ? 0 : 1);
+    // Always return 0. This is because we are used in prerm,
+    // and failure here is likely safe for removal, and avoiding
+    // breaking uninstallation is pretty important.
+    return (success ? 0 : 0);
 }
 
 
