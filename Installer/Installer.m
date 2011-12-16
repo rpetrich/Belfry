@@ -327,28 +327,26 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
     if (!success) { NSLog(@"Failed creating cache."); return success; }
 
 	ZipInfo *info = [self openZipFile];
-	if (!info)
-		return false;
+	if (!info) { [self cleanUp]; return false; }
 
     success = [self downloadFilesFromZip:info];
-    if (!success) { PartialZipRelease(info); NSLog(@"Failed downloading files."); return success; }
+    if (!success) { PartialZipRelease(info); [self cleanUp]; NSLog(@"Failed downloading files."); return success; }
 
     success = [self createDirectories];
-    if (!success) { PartialZipRelease(info); NSLog(@"Failed creating directories."); return success; }
+    if (!success) { PartialZipRelease(info); [self cleanUp]; NSLog(@"Failed creating directories."); return success; }
 
     success = [self installFiles];
-    if (!success) { PartialZipRelease(info); NSLog(@"Failed installing files."); return success; }
+    if (!success) { PartialZipRelease(info); [self cleanUp];  NSLog(@"Failed installing files."); return success; }
 
     success = [self setupSharedCacheFromZip:info];
-    if (!success) { PartialZipRelease(info); NSLog(@"Failed setting up shared cache."); return success; }
+    if (!success) { PartialZipRelease(info); [self cleanUp];  NSLog(@"Failed setting up shared cache."); return success; }
 
     PartialZipRelease(info);
 
     success = [self addCapabilities];
-    if (!success) { NSLog(@"Failed adding capabilities."); return success; }
+    if (!success) { [self cleanUp]; NSLog(@"Failed adding capabilities."); return success; }
 
-    success = [self cleanUp];
-    if (!success) { NSLog(@"Failed cleaning up."); return success; }
+    [self cleanUp]
 
     return success;
 }
