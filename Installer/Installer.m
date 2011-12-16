@@ -216,7 +216,7 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
 	[self applyAlternativeSharedCacheToEnvironmentVariables:ev];
 
     SavePropertyList(plist, "", url, kCFPropertyListBinaryFormat_v1_0);
-    return NO;
+    return YES;
 }
 
 - (BOOL)applyAlternativeCacheToAppAtPath:(const char *)path {
@@ -257,7 +257,7 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
     if (!success) { NSLog(@"Failed downloading shared cache."); return success; }
 	downloadFileCallback(info, NULL, NULL, 0, &data);
 
-    success = [self installItemAtCachePath:@"dyld_shared_cache_armv7" intoPath:@"/var/spire/dyld_shared_cache_armv7"];
+    success = [self installItemAtCachePath:@"dyld_shared_cache_armv7" intoPath:@"var/spire/dyld_shared_cache_armv7"];
     if (!success) { NSLog(@"Failed installing cache."); return success; }
 
     success = [self applyAlternativeCacheToAppAtPath:"/Applications/Preferences.app/Info.plist"];
@@ -272,7 +272,7 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
 - (BOOL)addCapabilities {
     static char platform[1024];
     size_t len = sizeof(platform);
-    int ret = sysctlbyname("kern.ident", &platform, &len, NULL, 0);
+    int ret = sysctlbyname("hw.model", &platform, &len, NULL, 0);
     if (ret == -1) { NSLog(@"sysctlbyname failed."); return NO; }
 
     NSString *platformPath = [NSString stringWithFormat:@"/System/Library/CoreServices/SpringBoard.app/%s.plist", platform];
