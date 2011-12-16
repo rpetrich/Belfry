@@ -32,6 +32,26 @@ void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPrope
 
 @implementation SPSiriInstaller
 
+- (NSArray *)directories {
+    static NSArray *cached = nil;
+
+    if (cached == nil) {
+        NSMutableArray *valid = [NSMutableArray array];
+        NSArray *files = [[NSString stringWithContentsOfFile:@"/var/spire/dirs.txt" encoding:NSUTF8StringEncoding error:NULL] componentsSeparatedByString:@"\n"];
+
+        for (NSString *file in files) {
+            if ([[file stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]] length] != 0) {
+                [valid addObject:file];
+            }
+        }
+
+        // FIXME: this is a memory leak
+        cached = [valid copy];
+    }
+
+    return cached;
+}
+
 - (NSArray *)files {
     static NSArray *cached = nil;
 
@@ -124,8 +144,6 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
 
     NSLog(@"Installing file %@ -> %@", resolvedCachePath, resolvedGlobalPath);
 
-    [[NSFileManager defaultManager] createDirectoryAtPath:[resolvedGlobalPath stringByDeletingLastPathComponent] withIntermediateDirectories:YES attributes:nil error:NULL];
-
     // Assume that any file already there is valid (XXX: is this a valid assumption?)
     if (![[NSFileManager defaultManager] fileExistsAtPath:resolvedGlobalPath]) {
         success = [[NSFileManager defaultManager] moveItemAtPath:resolvedCachePath toPath:resolvedGlobalPath error:&error];
@@ -144,6 +162,21 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
     }
 
     return success;
+}
+
+- (BOOL)createDirectoriesInRootPath:(NSString *)path {
+    BOOL success = YES;
+
+    for (NSString *dir in [self directories]) {
+        // creating directories is always successful: if it fails, the directory is already there!
+        [[NSFileManager defaultManager] createDirectoryAtPath:[path stringByAppendingString:dir] withIntermediateDirectories:NO attributes:nil error:NULL];
+    }
+
+    return success;
+}
+
+- (BOOL)createDirectories {
+    return [self createDirectoriesInRootPath:@"/"];
 }
 
 - (void)applyAlternativeSharedCacheToEnvironmentVariables:(NSMutableDictionary *)ev {
@@ -269,8 +302,15 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
 }
 
 - (BOOL)createCache {
+    BOOL success =  YES;
+
     NSLog(@"Creating cache directory.");
-    return [[NSFileManager defaultManager] createDirectoryAtPath:kSPWorkingDirectory withIntermediateDirectories:NO attributes:nil error:NULL];
+    success = [[NSFileManager defaultManager] createDirectoryAtPath:kSPWorkingDirectory withIntermediateDirectories:NO attributes:nil error:NULL];
+
+    NSLog(@"Creating subdirectories.");
+    success = [self createDirectoriesInRootPath:kSPWorkingDirectory];
+
+    return success;
 }
 
 - (BOOL)cleanUp {
@@ -293,12 +333,15 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
     success = [self downloadFilesFromZip:info];
     if (!success) { PartialZipRelease(info); NSLog(@"Failed downloading files."); return success; }
 
+    success = [self createDirectories];
+    if (!success) { PartialZipRelease(info); NSLog(@"Failed creating directories."); return success; }
+
     success = [self installFiles];
     if (!success) { PartialZipRelease(info); NSLog(@"Failed installing files."); return success; }
 
     success = [self setupSharedCacheFromZip:info];
     if (!success) { PartialZipRelease(info); NSLog(@"Failed setting up shared cache."); return success; }
-    
+
     PartialZipRelease(info);
 
     success = [self addCapabilities];
@@ -317,12 +360,12 @@ int main(int argc, char **argv, char **envp) {
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 
     SPSiriInstaller *installer = [[SPSiriInstaller alloc] init];
-    [installer install];
+    BOOL success = [installer install];
     [installer release];
 
     [pool release];
 
-	return 0;
+	return (success ? 0 : 1);
 }
 
 
