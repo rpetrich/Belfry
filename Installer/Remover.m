@@ -87,15 +87,15 @@ void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPrope
     BOOL success = YES;
 
     for (NSString *file in [self files]) {
+        // Ignore errors here: even if one doesn't exist, still remove the others.
         success = [self removeFileAtPath:file];
-        if (!success) { NSLog(@"Failed removing file at path: /%@.", file); break; }
+        if (!success) { NSLog(@"Failed removing file at path: /%@.", file); }
     }
 
-    if (!success) return success;
-
     for (NSString *dir in [self directories]) {
+        // Ignore errors here: even if one doesn't exist, still remove the others.
         success = [self removeDirectoryAtPath:dir];
-        if (!success) { NSLog(@"Failed removing directory at path: /%@.", dir); break; }
+        if (!success) { NSLog(@"Failed removing directory at path: /%@.", dir); }
     }
 
     return success;
@@ -220,15 +220,17 @@ void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPrope
     BOOL success = YES;
 
     success = [self removeFiles];
-    if (!success) { NSLog(@"Failed removing files."); return success; }
+    if (!success) { NSLog(@"Failed removing files."); }
 
     success = [self removeSharedCache];
-    if (!success) { NSLog(@"Failed removing shared cache."); return success; }
+    if (!success) { NSLog(@"Failed removing shared cache."); }
 
     success = [self removeCapabilities];
-    if (!success) { NSLog(@"Failed removing capabilities."); return success; }
+    if (!success) { NSLog(@"Failed removing capabilities."); }
 
-    return success;
+    // removing always succeeded: if something above failed,
+    // it's only because it wasn't installed in the first place.
+    return YES;
 }
 
 @end
@@ -243,10 +245,7 @@ int main(int argc, char **argv, char **envp) {
 
     [pool release];
 
-    // Always return 0. This is because we are used in prerm,
-    // and failure here is likely safe for removal, and avoiding
-    // breaking uninstallation is pretty important.
-    return (success ? 0 : 0);
+    return (success ? 0 : 1);
 }
 
 
