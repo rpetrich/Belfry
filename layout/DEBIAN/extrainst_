@@ -4,11 +4,24 @@ declare -a cydia
 cydia=($CYDIA)
 
 if [[ $1 == install ]]; then
+    # install only on install, not if upgrading, etc.
+    # FIXME: for future ugprades, this logic may need to change
     SpireInstaller
 
-    if [[ ${CYDIA+@} ]]; then
-        eval "echo 'finish:reboot' >&${cydia[0]}"
+    if [ $? = 0 ]; then
+        # force a reboot on a successful install
+        if [[ ${CYDIA+@} ]]; then
+            eval "echo 'finish:reboot' >&${cydia[0]}"
+        fi
+
+        exit 0
+    else
+        # cleanup to remove partial installs
+        SpireRemover
+
+        exit 1
     fi
+
 fi
 
 

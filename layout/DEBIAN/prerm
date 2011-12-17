@@ -4,8 +4,10 @@ declare -a cydia
 cydia=($CYDIA)
 
 if [[ $1 == remove ]]; then
+    # FIXME: this may need to be changed when we have updates
     SpireRemover
 
+    # force a reboot after uninstallation
     if [[ ${CYDIA+@} ]]; then
         eval "echo 'finish:reboot' >&${cydia[0]}"
     fi

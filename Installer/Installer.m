@@ -346,7 +346,7 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
     success = [self addCapabilities];
     if (!success) { [self cleanUp]; NSLog(@"Failed adding capabilities."); return success; }
 
-    [self cleanUp]
+    [self cleanUp];
 
     return success;
 }
