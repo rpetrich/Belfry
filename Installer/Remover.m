@@ -6,6 +6,8 @@
 #include <string.h>
 #include <stdint.h>
 
+#import "SPLogging.h"
+
 void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPropertyListFormat format) {
     if (path[0] != '\0')
         url = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, (uint8_t *) path, strlen(path), false);
@@ -65,14 +67,14 @@ void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPrope
 
 - (BOOL)removeFileAtPath:(NSString *)file {
     NSString *path = [@"/" stringByAppendingString:file];
-    NSLog(@"Removing file: %@", path);
+    SPLog(@"Removing file: %@", path);
 
     return [[NSFileManager defaultManager] removeItemAtPath:path error:NULL];
 }
 
 - (BOOL)removeDirectoryAtPath:(NSString *)dir {
     NSString *path = [@"/" stringByAppendingString:dir];
-    NSLog(@"Removing directory: %@", path);
+    SPLog(@"Removing directory: %@", path);
 
     // strangely, NSFileManager has no method to remove a directory only if
     // it is empty. therefore, use the POSIX rmdir, which does exactly that.
@@ -89,13 +91,13 @@ void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPrope
     for (NSString *file in [self files]) {
         // Ignore errors here: even if one doesn't exist, still remove the others.
         success = [self removeFileAtPath:file];
-        if (!success) { NSLog(@"Failed removing file at path: /%@.", file); }
+        if (!success) { SPLog(@"Failed removing file at path: /%@.", file); }
     }
 
     for (NSString *dir in [self directories]) {
         // Ignore errors here: even if one doesn't exist, still remove the others.
         success = [self removeDirectoryAtPath:dir];
-        if (!success) { NSLog(@"Failed removing directory at path: /%@.", dir); }
+        if (!success) { SPLog(@"Failed removing directory at path: /%@.", dir); }
     }
 
     return success;
@@ -116,7 +118,7 @@ void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPrope
 }
 
 - (BOOL)removeAlternativeCacheFromDaemonAtPath:(const char *)path {
-    NSLog(@"Patching cache out of daemon: %s", path);
+    SPLog(@"Patching cache out of daemon: %s", path);
 
     CFURLRef url = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, (uint8_t *) path, strlen(path), false);
 
@@ -142,7 +144,7 @@ void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPrope
 }
 
 - (BOOL)removeAlternativeCacheFromAppAtPath:(const char *)path {
-    NSLog(@"Patching cache out of app: %s", path);
+    SPLog(@"Patching cache out of app: %s", path);
 
     CFURLRef url = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, (uint8_t *) path, strlen(path), false);
 
@@ -170,27 +172,27 @@ void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPrope
 - (BOOL)removeSharedCache {
     BOOL success = YES;
 
-    NSLog(@"Removing shared cache.");
+    SPLog(@"Removing shared cache.");
 
     success = [self removeFileAtPath:@"var/spire/dyld_shared_cache_armv7"];
-    if (!success) { NSLog(@"Failed removing cache."); return success; }
+    if (!success) { SPLog(@"Failed removing cache."); return success; }
 
     success = [self removeAlternativeCacheFromAppAtPath:"/Applications/Preferences.app/Info.plist"];
-    if (!success) { NSLog(@"Failed removing cache from Preferences."); return success; }
+    if (!success) { SPLog(@"Failed removing cache from Preferences."); return success; }
 
     success = [self removeAlternativeCacheFromDaemonAtPath:"/System/Library/LaunchDaemons/com.apple.SpringBoard.plist"];
-    if (!success) { NSLog(@"Failed removing cache from SpringBoard."); return success; }
+    if (!success) { SPLog(@"Failed removing cache from SpringBoard."); return success; }
 
     return success;
 }
 
 - (BOOL)removeCapabilities {
-    NSLog(@"Removing capabilities.");
+    SPLog(@"Removing capabilities.");
 
     static char platform[1024];
     size_t len = sizeof(platform);
     int ret = sysctlbyname("hw.model", &platform, &len, NULL, 0);
-    if (ret == -1) { NSLog(@"sysctlbyname failed."); return NO; }
+    if (ret == -1) { SPLog(@"sysctlbyname failed."); return NO; }
 
     NSString *platformPath = [NSString stringWithFormat:@"/System/Library/CoreServices/SpringBoard.app/%s.plist", platform];
     const char *path = [platformPath UTF8String];
@@ -220,13 +222,13 @@ void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPrope
     BOOL success = YES;
 
     success = [self removeFiles];
-    if (!success) { NSLog(@"Failed removing files."); }
+    if (!success) { SPLog(@"Failed removing files."); }
 
     success = [self removeSharedCache];
-    if (!success) { NSLog(@"Failed removing shared cache."); }
+    if (!success) { SPLog(@"Failed removing shared cache."); }
 
     success = [self removeCapabilities];
-    if (!success) { NSLog(@"Failed removing capabilities."); }
+    if (!success) { SPLog(@"Failed removing capabilities."); }
 
     // removing always succeeded: if something above failed,
     // it's only because it wasn't installed in the first place.
