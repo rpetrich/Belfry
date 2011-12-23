@@ -18,7 +18,7 @@ Please be sure you understand this before entering a proxy URL above.</string>
 			<key>default</key>
 			<string></string>
             <key>placeholder</key>
-            <string>http://example.com/</string>
+            <string>http://example.com</string>
 			<key>defaults</key>
 			<string>com.chpwn.spire.preferences</string>
             <key>PostNotification</key>
@@ -26,7 +26,7 @@ Please be sure you understand this before entering a proxy URL above.</string>
 			<key>key</key>
 			<string>SPProxyURL</string>
 			<key>label</key>
-			<string>Proxy URL</string>
+			<string>Proxy Host</string>
 		</dict>
 		<dict>
 			<key>cell</key>
