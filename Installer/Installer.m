@@ -1,8 +1,9 @@
 
 #import <Foundation/Foundation.h>
 #include <CoreFoundation/CFPropertyList.h>
-#include <sys/types.h>
 #include <sys/sysctl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <string.h>
 #include <stdint.h>
 
@@ -149,6 +150,9 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
     if (![[NSFileManager defaultManager] fileExistsAtPath:resolvedGlobalPath]) {
         success = [[NSFileManager defaultManager] moveItemAtPath:resolvedCachePath toPath:resolvedGlobalPath error:&error];
         if (!success) { SPLog(@"Unable to move item into installed position. (%@)", [error localizedDescription]); return success; }
+
+        int ret = chmod([resolvedGlobalPath UTF8String], 0755);
+        if (ret != 0) { success = NO; SPLog(@"Unable to chmod file: %d", errno); return success; }
     }
 
     return success;
@@ -192,6 +196,38 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
     if ([[ev objectForKey:@"DYLD_SHARED_CACHE_DONT_VALIDATE"] length] == 0) {
         [ev setObject:@"1" forKey:@"DYLD_SHARED_CACHE_DONT_VALIDATE"];
     }
+}
+
+- (void)applyMobileSubstrateToEnvironmentVariables:(NSMutableDictionary *)ev {
+    if ([[ev objectForKey:@"DYLD_INSERT_LIBRARIES"] length] == 0) {
+        [ev setObject:@"/Library/MobileSubstrate/MobileSubstrate.dylib" forKey:@"DYLD_INSERT_LIBRARIES"];
+    }
+}
+
+- (BOOL)applyMobileSubstrateToDaemonAtPath:(const char *)path {
+    SPLog(@"Patching MobileSubstrate into daemon: %s", path);
+
+    CFURLRef url = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, (uint8_t *) path, strlen(path), false);
+
+    CFPropertyListRef plist; {
+        CFReadStreamRef stream = CFReadStreamCreateWithFile(kCFAllocatorDefault, url);
+        CFReadStreamOpen(stream);
+        plist = CFPropertyListCreateFromStream(kCFAllocatorDefault, stream, 0, kCFPropertyListMutableContainers, NULL, NULL);
+        CFReadStreamClose(stream);
+    }
+
+    NSMutableDictionary *root = (NSMutableDictionary *) plist;
+    if (root == nil) return NO;
+    NSMutableDictionary *ev = [root objectForKey:@"EnvironmentVariables"];
+    if (ev == nil) {
+        ev = [NSMutableDictionary dictionary];
+        [root setObject:ev forKey:@"EnvironmentVariables"];
+    }
+
+	[self applyMobileSubstrateToEnvironmentVariables:ev];
+
+    SavePropertyList(plist, "", url, kCFPropertyListBinaryFormat_v1_0);
+    return YES;
 }
 
 - (BOOL)applyAlternativeCacheToDaemonAtPath:(const char *)path {
@@ -266,6 +302,12 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
 
     success = [self applyAlternativeCacheToDaemonAtPath:"/System/Library/LaunchDaemons/com.apple.SpringBoard.plist"];
     if (!success) { SPLog(@"Failed applying cache to SpringBoard."); return success; }
+
+    success = [self applyAlternativeCacheToDaemonAtPath:"/System/Library/LaunchDaemons/com.apple.assistantd.plist"];
+    if (!success) { SPLog(@"Failed applying cache to assistantd."); return success; }
+
+    success = [self applyMobileSubstrateToDaemonAtPath:"/System/Library/LaunchDaemons/com.apple.assistantd.plist"];
+    if (!success) { SPLog(@"Failed applying MobileSubstrate to assistantd."); return success; }
 
     return success;
 }
