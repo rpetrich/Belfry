@@ -67,14 +67,12 @@ void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPrope
 
 - (BOOL)removeFileAtPath:(NSString *)file {
     NSString *path = [@"/" stringByAppendingString:file];
-    SPLog(@"Removing file: %@", path);
 
     return [[NSFileManager defaultManager] removeItemAtPath:path error:NULL];
 }
 
 - (BOOL)removeDirectoryAtPath:(NSString *)dir {
     NSString *path = [@"/" stringByAppendingString:dir];
-    SPLog(@"Removing directory: %@", path);
 
     // strangely, NSFileManager has no method to remove a directory only if
     // it is empty. therefore, use the POSIX rmdir, which does exactly that.
@@ -118,8 +116,6 @@ void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPrope
 }
 
 - (BOOL)removeAlternativeCacheFromDaemonAtPath:(const char *)path {
-    SPLog(@"Patching cache out of daemon: %s", path);
-
     CFURLRef url = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, (uint8_t *) path, strlen(path), false);
 
     CFPropertyListRef plist; {
@@ -144,8 +140,6 @@ void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPrope
 }
 
 - (BOOL)removeAlternativeCacheFromAppAtPath:(const char *)path {
-    SPLog(@"Patching cache out of app: %s", path);
-
     CFURLRef url = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, (uint8_t *) path, strlen(path), false);
 
     CFPropertyListRef plist; {
@@ -172,8 +166,6 @@ void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPrope
 - (BOOL)removeSharedCache {
     BOOL success = YES;
 
-    SPLog(@"Removing shared cache.");
-
     success = [self removeFileAtPath:@"var/spire/dyld_shared_cache_armv7"];
     if (!success) { SPLog(@"Failed removing cache."); return success; }
 
@@ -187,8 +179,6 @@ void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPrope
 }
 
 - (BOOL)removeCapabilities {
-    SPLog(@"Removing capabilities.");
-
     static char platform[1024];
     size_t len = sizeof(platform);
     int ret = sysctlbyname("hw.model", &platform, &len, NULL, 0);
@@ -221,12 +211,15 @@ void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPrope
 - (BOOL)remove {
     BOOL success = YES;
 
+    SPLog(@"Removing files.");
     success = [self removeFiles];
     if (!success) { SPLog(@"Failed removing files."); }
 
+    SPLog(@"Removing shared cache.");
     success = [self removeSharedCache];
     if (!success) { SPLog(@"Failed removing shared cache."); }
 
+    SPLog(@"Removing system file patches.");
     success = [self removeCapabilities];
     if (!success) { SPLog(@"Failed removing capabilities."); }
 

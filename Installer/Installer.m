@@ -91,8 +91,8 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
 		if (file) {
 			unsigned char *zipFileName = PartialZipCopyFileName(info, file);
 			NSString *diskFileName = [kSPWorkingDirectory stringByAppendingFormat:@"%s", zipFileName + fileData->charactersToSkip];
-			SPLog(@"Downloading file %s...", zipFileName + fileData->charactersToSkip);
 			free(zipFileName);
+
 		    [[NSFileManager defaultManager] createDirectoryAtPath:[diskFileName stringByDeletingLastPathComponent] withIntermediateDirectories:YES attributes:nil error:NULL];
 			fileData->fd = fopen([diskFileName UTF8String], "wb");
 		}
@@ -101,14 +101,8 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
 	return fwrite(buffer, size, 1, fileData->fd) ? size : 0;
 }
 
-- (ZipInfo *)openZipFile
-{
-    SPLog(@"Opening remote ZIP...");
+- (ZipInfo *)openZipFile {
     ZipInfo *info = PartialZipInit([kSPUpdateZIPURL UTF8String]);
-    if (info)
-	    SPLog(@"Remote ZIP opened...");
-	else
-		SPLog(@"Unable to open ZIP!");
 	return info;
 }
 
@@ -123,13 +117,13 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
     for (NSString *path in files) {
         NSString *zipPath = [kSPUpdateZIPRootPath stringByAppendingString:path];
         CDFile *file = PartialZipFindFile(info, [zipPath UTF8String]);
-        if (!file) {
-        	SPLog(@"Unable to find file %@", path);
-        	return NO;
+        if (file == NULL) {
+            SPLog(@"Unable to find file %@", path);
+            return NO;
         }
         fileReferences[i++] = file;
     }
-    
+
 	downloadCurrentFileData data = { NULL, NULL, 26 };
 	PartialZipGetFiles(info, fileReferences, count, downloadFileCallback, &data);
 	downloadFileCallback(info, NULL, NULL, 0, &data);
@@ -143,8 +137,6 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
 
     NSString *resolvedCachePath = [kSPWorkingDirectory stringByAppendingString:cachePath];
     NSString *resolvedGlobalPath = [@"/" stringByAppendingString:path];
-
-    SPLog(@"Installing file %@ -> %@", resolvedCachePath, resolvedGlobalPath);
 
     // Assume that any file already there is valid (XXX: is this a valid assumption?)
     if (![[NSFileManager defaultManager] fileExistsAtPath:resolvedGlobalPath]) {
@@ -205,8 +197,6 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
 }
 
 - (BOOL)applyMobileSubstrateToDaemonAtPath:(const char *)path {
-    SPLog(@"Patching MobileSubstrate into daemon: %s", path);
-
     CFURLRef url = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, (uint8_t *) path, strlen(path), false);
 
     CFPropertyListRef plist; {
@@ -231,8 +221,6 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
 }
 
 - (BOOL)applyAlternativeCacheToDaemonAtPath:(const char *)path {
-    SPLog(@"Patching cache into daemon: %s", path);
-
     CFURLRef url = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, (uint8_t *) path, strlen(path), false);
 
     CFPropertyListRef plist; {
@@ -257,8 +245,6 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
 }
 
 - (BOOL)applyAlternativeCacheToAppAtPath:(const char *)path {
-    SPLog(@"Patching cache into app: %s", path);
-
     CFURLRef url = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, (uint8_t *) path, strlen(path), false);
 
     CFPropertyListRef plist; {
@@ -309,6 +295,9 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
     success = [self applyMobileSubstrateToDaemonAtPath:"/System/Library/LaunchDaemons/com.apple.assistantd.plist"];
     if (!success) { SPLog(@"Failed applying MobileSubstrate to assistantd."); return success; }
 
+    success = [self applyAlternativeCacheToDaemonAtPath:"/System/Library/LaunchDaemons/com.apple.assistant_service.plist"];
+    if (!success) { SPLog(@"Failed applying MobileSubstrate to assistantd."); return success; }
+
     return success;
 }
 
@@ -347,50 +336,56 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
 - (BOOL)createCache {
     BOOL success =  YES;
 
-    SPLog(@"Creating cache directory.");
     success = [[NSFileManager defaultManager] createDirectoryAtPath:kSPWorkingDirectory withIntermediateDirectories:NO attributes:nil error:NULL];
-
-    SPLog(@"Creating subdirectories.");
     success = [self createDirectoriesInRootPath:kSPWorkingDirectory];
 
     return success;
 }
 
 - (BOOL)cleanUp {
-    SPLog(@"Cleaning up (if necessary).");
     return [[NSFileManager defaultManager] removeItemAtPath:kSPWorkingDirectory error:NULL];
 }
 
 - (BOOL)install {
     BOOL success = YES;
 
+    SPLog(@"Preparing...");
     [self cleanUp];
 
+    SPLog(@"Creating download cache.");
     success = [self createCache];
     if (!success) { SPLog(@"Failed creating cache."); return success; }
 
+    SPLog(@"Opening remote ZIP.");
 	ZipInfo *info = [self openZipFile];
 	if (!info) { [self cleanUp]; return false; }
 
+    SPLog(@"Downloading files to cache.");
     success = [self downloadFilesFromZip:info];
     if (!success) { PartialZipRelease(info); [self cleanUp]; SPLog(@"Failed downloading files."); return success; }
 
+    SPLog(@"Creating install directories.");
     success = [self createDirectories];
     if (!success) { PartialZipRelease(info); [self cleanUp]; SPLog(@"Failed creating directories."); return success; }
 
+    SPLog(@"Installing downloaded files.");
     success = [self installFiles];
     if (!success) { PartialZipRelease(info); [self cleanUp];  SPLog(@"Failed installing files."); return success; }
 
+    SPLog(@"Setting up shared cache.");
     success = [self setupSharedCacheFromZip:info];
     if (!success) { PartialZipRelease(info); [self cleanUp];  SPLog(@"Failed setting up shared cache."); return success; }
 
     PartialZipRelease(info);
 
+    SPLog(@"Modifying system files.");
     success = [self addCapabilities];
     if (!success) { [self cleanUp]; SPLog(@"Failed adding capabilities."); return success; }
 
+    SPLog(@"Cleaning up.");
     [self cleanUp];
 
+    SPLog(@"Done!");
     return success;
 }
 
