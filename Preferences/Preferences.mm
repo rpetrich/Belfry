@@ -20,7 +20,7 @@
 }
 
 - (void)moreInfoPressed:(id)specifier {
-    [[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"http://chpwn.com/apps/spire/help"]];
+    [[UIApplication sharedApplication] openURL:[NSURL URLWithString:@"http://chpwn.com/apps/spire"]];
 }
 
 - (void)donatePressed:(id)specifier {
