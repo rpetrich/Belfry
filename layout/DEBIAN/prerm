@@ -13,4 +13,5 @@ if [[ $1 == remove ]]; then
     fi
 fi
 
+exit 0
 
