@@ -1,16 +1,16 @@
 
 include theos/makefiles/common.mk
 
-TOOL_NAME = SpireInstaller SpireRemover
+TOOL_NAME = BelfryInstaller BelfryRemover
 
-SpireInstaller_FILES = Installer.m partial.c
-SpireInstaller_FRAMEWORKS = Foundation CoreFoundation
-SpireInstaller_LDFLAGS = -lcurl -lz
-SpireInstaller_OBJCFLAGS = -I$(THEOS_PROJECT_DIR) -F$(THEOS_PROJECT_DIR)
+BelfryInstaller_FILES = Installer.m partial.c
+BelfryInstaller_FRAMEWORKS = Foundation CoreFoundation
+BelfryInstaller_LDFLAGS = -lcurl -lz
+BelfryInstaller_OBJCFLAGS = -I$(THEOS_PROJECT_DIR) -F$(THEOS_PROJECT_DIR)
 
-SpireRemover_FILES = Remover.m
-SpireRemover_FRAMEWORKS = Foundation CoreFoundation
-SpireRemover_OBJCFLAGS = -I$(THEOS_PROJECT_DIR) -F$(THEOS_PROJECT_DIR)
+BelfryRemover_FILES = Remover.m
+BelfryRemover_FRAMEWORKS = Foundation CoreFoundation
+BelfryRemover_OBJCFLAGS = -I$(THEOS_PROJECT_DIR) -F$(THEOS_PROJECT_DIR)
 
 include $(THEOS_MAKE_PATH)/tool.mk
 

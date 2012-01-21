@@ -12,7 +12,7 @@
 
 #define kSPUpdateZIPURL @"http://appldnld.apple.com/iPhone4/041-3249.20111103.Qswe3/com_apple_MobileAsset_SoftwareUpdate/554f7813ac09d45256faad560b566814c983bd4b.zip"
 #define kSPUpdateZIPRootPath @"AssetData/payload/replace/"
-#define kSPWorkingDirectory @"/tmp/spire/"
+#define kSPWorkingDirectory @"/tmp/belfry/"
 
 
 void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPropertyListFormat format) {
@@ -25,25 +25,26 @@ void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPrope
 }
 
 
-@interface SPSiriInstaller : NSObject {
+@interface BFInstaller : NSObject {
 
 }
 
 @end
 
 
-@implementation SPSiriInstaller
+@implementation BFInstaller
 
 - (NSArray *)directories {
     static NSArray *cached = nil;
 
     if (cached == nil) {
         NSMutableArray *valid = [NSMutableArray array];
-        NSArray *files = [[NSString stringWithContentsOfFile:@"/var/spire/dirs.txt" encoding:NSUTF8StringEncoding error:NULL] componentsSeparatedByString:@"\n"];
+        NSArray *files = [[NSString stringWithContentsOfFile:@"/var/belfry/files.txt" encoding:NSUTF8StringEncoding error:NULL] componentsSeparatedByString:@"\n"];
 
         for (NSString *file in files) {
-            if ([[file stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]] length] != 0) {
-                [valid addObject:file];
+            NSString *trimmedFile = [file stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+            if ([trimmedFile length] && [trimmedFile hasSuffix:@"/"]) {
+                [valid addObject:trimmedFile];
             }
         }
 
@@ -59,11 +60,12 @@ void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPrope
 
     if (cached == nil) {
         NSMutableArray *valid = [NSMutableArray array];
-        NSArray *files = [[NSString stringWithContentsOfFile:@"/var/spire/files.txt" encoding:NSUTF8StringEncoding error:NULL] componentsSeparatedByString:@"\n"];
+        NSArray *files = [[NSString stringWithContentsOfFile:@"/var/belfry/files.txt" encoding:NSUTF8StringEncoding error:NULL] componentsSeparatedByString:@"\n"];
 
         for (NSString *file in files) {
-            if ([[file stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]] length] != 0) {
-                [valid addObject:file];
+            NSString *trimmedFile = [file stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+            if ([trimmedFile length] && ![trimmedFile hasSuffix:@"/"]) {
+                [valid addObject:trimmedFile];
             }
         }
 
@@ -92,6 +94,7 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
 			unsigned char *zipFileName = PartialZipCopyFileName(info, file);
 			NSString *diskFileName = [kSPWorkingDirectory stringByAppendingFormat:@"%s", zipFileName + fileData->charactersToSkip];
 			free(zipFileName);
+			SPLog(@"Downloading %s", zipFileName + fileData->charactersToSkip);
 
 		    [[NSFileManager defaultManager] createDirectoryAtPath:[diskFileName stringByDeletingLastPathComponent] withIntermediateDirectories:YES attributes:nil error:NULL];
 			fileData->fd = fopen([diskFileName UTF8String], "wb");
@@ -114,14 +117,19 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
 	NSInteger count = [files count];
 	CDFile *fileReferences[count];
 	int i = 0;
+	NSFileManager *fm = [NSFileManager defaultManager];
     for (NSString *path in files) {
-        NSString *zipPath = [kSPUpdateZIPRootPath stringByAppendingString:path];
-        CDFile *file = PartialZipFindFile(info, [zipPath UTF8String]);
-        if (file == NULL) {
-            SPLog(@"Unable to find file %@", path);
-            return NO;
+        if ([fm fileExistsAtPath:[@"/" stringByAppendingString:path]])
+            count--;
+        else {
+            NSString *zipPath = [kSPUpdateZIPRootPath stringByAppendingString:path];
+            CDFile *file = PartialZipFindFile(info, [zipPath UTF8String]);
+            if (file == NULL) {
+                SPLog(@"Unable to find file %@", path);
+                return NO;
+            }
+            fileReferences[i++] = file;
         }
-        fileReferences[i++] = file;
     }
 
 	downloadCurrentFileData data = { NULL, NULL, 26 };
@@ -178,7 +186,7 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
 
 - (void)applyAlternativeSharedCacheToEnvironmentVariables:(NSMutableDictionary *)ev {
     if ([[ev objectForKey:@"DYLD_SHARED_CACHE_DIR"] length] == 0) {
-        [ev setObject:@"/var/spire" forKey:@"DYLD_SHARED_CACHE_DIR"];
+        [ev setObject:@"/var/belfry" forKey:@"DYLD_SHARED_CACHE_DIR"];
     }
 
     if ([[ev objectForKey:@"DYLD_SHARED_REGION"] length] == 0) {
@@ -188,60 +196,6 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
     if ([[ev objectForKey:@"DYLD_SHARED_CACHE_DONT_VALIDATE"] length] == 0) {
         [ev setObject:@"1" forKey:@"DYLD_SHARED_CACHE_DONT_VALIDATE"];
     }
-}
-
-- (void)applyMobileSubstrateToEnvironmentVariables:(NSMutableDictionary *)ev {
-    if ([[ev objectForKey:@"DYLD_INSERT_LIBRARIES"] length] == 0) {
-        [ev setObject:@"/Library/MobileSubstrate/MobileSubstrate.dylib" forKey:@"DYLD_INSERT_LIBRARIES"];
-    }
-}
-
-- (BOOL)applyMobileSubstrateToDaemonAtPath:(const char *)path {
-    CFURLRef url = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, (uint8_t *) path, strlen(path), false);
-
-    CFPropertyListRef plist; {
-        CFReadStreamRef stream = CFReadStreamCreateWithFile(kCFAllocatorDefault, url);
-        CFReadStreamOpen(stream);
-        plist = CFPropertyListCreateFromStream(kCFAllocatorDefault, stream, 0, kCFPropertyListMutableContainers, NULL, NULL);
-        CFReadStreamClose(stream);
-    }
-
-    NSMutableDictionary *root = (NSMutableDictionary *) plist;
-    if (root == nil) return NO;
-    NSMutableDictionary *ev = [root objectForKey:@"EnvironmentVariables"];
-    if (ev == nil) {
-        ev = [NSMutableDictionary dictionary];
-        [root setObject:ev forKey:@"EnvironmentVariables"];
-    }
-
-	[self applyMobileSubstrateToEnvironmentVariables:ev];
-
-    SavePropertyList(plist, "", url, kCFPropertyListBinaryFormat_v1_0);
-    return YES;
-}
-
-- (BOOL)applyAlternativeCacheToDaemonAtPath:(const char *)path {
-    CFURLRef url = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, (uint8_t *) path, strlen(path), false);
-
-    CFPropertyListRef plist; {
-        CFReadStreamRef stream = CFReadStreamCreateWithFile(kCFAllocatorDefault, url);
-        CFReadStreamOpen(stream);
-        plist = CFPropertyListCreateFromStream(kCFAllocatorDefault, stream, 0, kCFPropertyListMutableContainers, NULL, NULL);
-        CFReadStreamClose(stream);
-    }
-
-    NSMutableDictionary *root = (NSMutableDictionary *) plist;
-    if (root == nil) return NO;
-    NSMutableDictionary *ev = [root objectForKey:@"EnvironmentVariables"];
-    if (ev == nil) {
-        ev = [NSMutableDictionary dictionary];
-        [root setObject:ev forKey:@"EnvironmentVariables"];
-    }
-
-	[self applyAlternativeSharedCacheToEnvironmentVariables:ev];
-
-    SavePropertyList(plist, "", url, kCFPropertyListBinaryFormat_v1_0);
-    return YES;
 }
 
 - (BOOL)applyAlternativeCacheToAppAtPath:(const char *)path {
@@ -271,66 +225,33 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
 - (BOOL)setupSharedCacheFromZip:(ZipInfo *)info {
     BOOL success = YES;
 
-	NSString *zipPath = [kSPUpdateZIPRootPath stringByAppendingString:@"System/Library/Caches/com.apple.dyld/dyld_shared_cache_armv7"];
-	CDFile *file = PartialZipFindFile(info, [zipPath UTF8String]);
-	if (!file) { SPLog(@"Failed to find dyld_shared_cache_armv7"); return NO; }
-
-	downloadCurrentFileData data = { NULL, NULL, 63 };
-	success = PartialZipGetFile(info, file, downloadFileCallback, &data);
-    if (!success) { SPLog(@"Failed downloading shared cache."); return success; }
-	downloadFileCallback(info, NULL, NULL, 0, &data);
-
-    success = [self installItemAtCachePath:@"dyld_shared_cache_armv7" intoPath:@"var/spire/dyld_shared_cache_armv7"];
-    if (!success) { SPLog(@"Failed installing cache."); return success; }
+    if (![[NSFileManager defaultManager] fileExistsAtPath:@"/var/belfry/dyld_shared_cache_armv7"]) {
+    	NSString *zipPath = [kSPUpdateZIPRootPath stringByAppendingString:@"System/Library/Caches/com.apple.dyld/dyld_shared_cache_armv7"];
+    	CDFile *file = PartialZipFindFile(info, [zipPath UTF8String]);
+    	if (!file) { SPLog(@"Failed to find dyld_shared_cache_armv7"); return NO; }
+    
+    	downloadCurrentFileData data = { NULL, NULL, 63 };
+    	success = PartialZipGetFile(info, file, downloadFileCallback, &data);
+        if (!success) { SPLog(@"Failed downloading shared cache."); return success; }
+    	downloadFileCallback(info, NULL, NULL, 0, &data);
+    
+        success = [self installItemAtCachePath:@"dyld_shared_cache_armv7" intoPath:@"var/belfry/dyld_shared_cache_armv7"];
+        if (!success) { SPLog(@"Failed installing cache."); return success; }
+    }
 
     success = [self applyAlternativeCacheToAppAtPath:"/Applications/Preferences.app/Info.plist"];
     if (!success) { SPLog(@"Failed applying cache to Preferences."); return success; }
 
-    success = [self applyAlternativeCacheToDaemonAtPath:"/System/Library/LaunchDaemons/com.apple.SpringBoard.plist"];
-    if (!success) { SPLog(@"Failed applying cache to SpringBoard."); return success; }
+    success = [self applyAlternativeCacheToAppAtPath:"/Applications/MobileTimer.app/Info.plist"];
+    if (!success) { SPLog(@"Failed applying cache to MobileTimer."); return success; }
 
-    success = [self applyAlternativeCacheToDaemonAtPath:"/System/Library/LaunchDaemons/com.apple.assistantd.plist"];
-    if (!success) { SPLog(@"Failed applying cache to assistantd."); return success; }
+    success = [self applyAlternativeCacheToAppAtPath:"/Applications/Weather.app/Info.plist"];
+    if (!success) { SPLog(@"Failed applying cache to Weather."); return success; }
 
-    success = [self applyMobileSubstrateToDaemonAtPath:"/System/Library/LaunchDaemons/com.apple.assistantd.plist"];
-    if (!success) { SPLog(@"Failed applying MobileSubstrate to assistantd."); return success; }
-
-    success = [self applyAlternativeCacheToDaemonAtPath:"/System/Library/LaunchDaemons/com.apple.assistant_service.plist"];
-    if (!success) { SPLog(@"Failed applying MobileSubstrate to assistantd."); return success; }
+    success = [self applyAlternativeCacheToAppAtPath:"/Applications/Stocks.app/Info.plist"];
+    if (!success) { SPLog(@"Failed applying cache to Stocks."); return success; }
 
     return success;
-}
-
-- (BOOL)addCapabilities {
-    static char platform[1024];
-    size_t len = sizeof(platform);
-    int ret = sysctlbyname("hw.model", &platform, &len, NULL, 0);
-    if (ret == -1) { SPLog(@"sysctlbyname failed."); return NO; }
-
-    NSString *platformPath = [NSString stringWithFormat:@"/System/Library/CoreServices/SpringBoard.app/%s.plist", platform];
-    const char *path = [platformPath UTF8String];
-
-    CFURLRef url = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, (uint8_t *) path, strlen(path), false);
-
-    CFPropertyListRef plist; {
-        CFReadStreamRef stream = CFReadStreamCreateWithFile(kCFAllocatorDefault, url);
-        CFReadStreamOpen(stream);
-        plist = CFPropertyListCreateFromStream(kCFAllocatorDefault, stream, 0, kCFPropertyListMutableContainers, NULL, NULL);
-        CFReadStreamClose(stream);
-    }
-
-    NSMutableDictionary *root = (NSMutableDictionary *) plist;
-    if (root == nil) return NO;
-    NSMutableDictionary *capabilities = [root objectForKey:@"capabilities"];
-    if (capabilities == nil) return NO;
-
-    NSNumber *yes = [NSNumber numberWithBool:YES];
-    [capabilities setObject:yes forKey:@"mars-volta"];
-    [capabilities setObject:yes forKey:@"assistant"];
-
-    SavePropertyList(plist, "", url, kCFPropertyListBinaryFormat_v1_0);
-
-    return YES;
 }
 
 - (BOOL)createCache {
@@ -378,10 +299,6 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
 
     PartialZipRelease(info);
 
-    SPLog(@"Modifying system files.");
-    success = [self addCapabilities];
-    if (!success) { [self cleanUp]; SPLog(@"Failed adding capabilities."); return success; }
-
     SPLog(@"Cleaning up.");
     [self cleanUp];
 
@@ -395,7 +312,7 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
 int main(int argc, char **argv, char **envp) {
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 
-    SPSiriInstaller *installer = [[SPSiriInstaller alloc] init];
+    BFInstaller *installer = [[BFInstaller alloc] init];
     BOOL success = [installer install];
     [installer release];
 

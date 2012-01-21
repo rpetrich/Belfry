@@ -5,7 +5,7 @@ cydia=($CYDIA)
 
 if [[ $1 == remove ]]; then
     # FIXME: this may need to be changed when we have updates
-    SpireRemover
+    BelfryRemover
 
     # force a reboot after uninstallation
     if [[ ${CYDIA+@} ]]; then

@@ -18,23 +18,24 @@ void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPrope
 }
 
 
-@interface SPSiriRemover : NSObject {
+@interface BFRemover : NSObject {
 }
 
 @end
 
-@implementation SPSiriRemover
+@implementation BFRemover
 
 - (NSArray *)directories {
     static NSArray *cached = nil;
 
     if (cached == nil) {
         NSMutableArray *valid = [NSMutableArray array];
-        NSArray *files = [[NSString stringWithContentsOfFile:@"/var/spire/dirs.txt" encoding:NSUTF8StringEncoding error:NULL] componentsSeparatedByString:@"\n"];
+        NSArray *files = [[NSString stringWithContentsOfFile:@"/var/belfry/files.txt" encoding:NSUTF8StringEncoding error:NULL] componentsSeparatedByString:@"\n"];
 
         for (NSString *file in files) {
-            if ([[file stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]] length] != 0) {
-                [valid addObject:file];
+            NSString *trimmedFile = [file stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+            if ([trimmedFile length] && [trimmedFile hasSuffix:@"/"]) {
+                [valid addObject:trimmedFile];
             }
         }
 
@@ -50,11 +51,12 @@ void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPrope
 
     if (cached == nil) {
         NSMutableArray *valid = [NSMutableArray array];
-        NSArray *files = [[NSString stringWithContentsOfFile:@"/var/spire/files.txt" encoding:NSUTF8StringEncoding error:NULL] componentsSeparatedByString:@"\n"];
+        NSArray *files = [[NSString stringWithContentsOfFile:@"/var/belfry/files.txt" encoding:NSUTF8StringEncoding error:NULL] componentsSeparatedByString:@"\n"];
 
         for (NSString *file in files) {
-            if ([[file stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]] length] != 0) {
-                [valid addObject:file];
+            NSString *trimmedFile = [file stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
+            if ([trimmedFile length] && ![trimmedFile hasSuffix:@"/"]) {
+                [valid addObject:trimmedFile];
             }
         }
 
@@ -102,7 +104,7 @@ void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPrope
 }
 
 - (void)removeAlternativeSharedCacheFromEnvironmentVariables:(NSMutableDictionary *)ev {
-    if ([[ev objectForKey:@"DYLD_SHARED_CACHE_DIR"] isEqual:@"/var/spire"]) {
+    if ([[ev objectForKey:@"DYLD_SHARED_CACHE_DIR"] isEqual:@"/var/belfry"]) {
         [ev removeObjectForKey:@"DYLD_SHARED_CACHE_DIR"];
     }
 
@@ -113,30 +115,6 @@ void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPrope
     if ([[ev objectForKey:@"DYLD_SHARED_CACHE_DONT_VALIDATE"] isEqual:@"1"]) {
         [ev removeObjectForKey:@"DYLD_SHARED_CACHE_DONT_VALIDATE"];
     }
-}
-
-- (BOOL)removeAlternativeCacheFromDaemonAtPath:(const char *)path {
-    CFURLRef url = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, (uint8_t *) path, strlen(path), false);
-
-    CFPropertyListRef plist; {
-        CFReadStreamRef stream = CFReadStreamCreateWithFile(kCFAllocatorDefault, url);
-        CFReadStreamOpen(stream);
-        plist = CFPropertyListCreateFromStream(kCFAllocatorDefault, stream, 0, kCFPropertyListMutableContainers, NULL, NULL);
-        CFReadStreamClose(stream);
-    }
-
-    NSMutableDictionary *root = (NSMutableDictionary *) plist;
-    if (root == nil) return NO;
-    NSMutableDictionary *ev = [root objectForKey:@"EnvironmentVariables"];
-    if (ev == nil) {
-        ev = [NSMutableDictionary dictionary];
-        [root setObject:ev forKey:@"EnvironmentVariables"];
-    }
-
-	[self removeAlternativeSharedCacheFromEnvironmentVariables:ev];
-
-    SavePropertyList(plist, "", url, kCFPropertyListBinaryFormat_v1_0);
-    return YES;
 }
 
 - (BOOL)removeAlternativeCacheFromAppAtPath:(const char *)path {
@@ -166,46 +144,13 @@ void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPrope
 - (BOOL)removeSharedCache {
     BOOL success = YES;
 
-    success = [self removeFileAtPath:@"var/spire/dyld_shared_cache_armv7"];
+    success = [self removeFileAtPath:@"var/belfry/dyld_shared_cache_armv7"];
     if (!success) { SPLog(@"Failed removing cache."); return success; }
 
     success = [self removeAlternativeCacheFromAppAtPath:"/Applications/Preferences.app/Info.plist"];
     if (!success) { SPLog(@"Failed removing cache from Preferences."); return success; }
 
-    success = [self removeAlternativeCacheFromDaemonAtPath:"/System/Library/LaunchDaemons/com.apple.SpringBoard.plist"];
-    if (!success) { SPLog(@"Failed removing cache from SpringBoard."); return success; }
-
     return success;
-}
-
-- (BOOL)removeCapabilities {
-    static char platform[1024];
-    size_t len = sizeof(platform);
-    int ret = sysctlbyname("hw.model", &platform, &len, NULL, 0);
-    if (ret == -1) { SPLog(@"sysctlbyname failed."); return NO; }
-
-    NSString *platformPath = [NSString stringWithFormat:@"/System/Library/CoreServices/SpringBoard.app/%s.plist", platform];
-    const char *path = [platformPath UTF8String];
-
-    CFURLRef url = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, (uint8_t *) path, strlen(path), false);
-
-    CFPropertyListRef plist; {
-        CFReadStreamRef stream = CFReadStreamCreateWithFile(kCFAllocatorDefault, url);
-        CFReadStreamOpen(stream);
-        plist = CFPropertyListCreateFromStream(kCFAllocatorDefault, stream, 0, kCFPropertyListMutableContainers, NULL, NULL);
-        CFReadStreamClose(stream);
-    }
-
-    NSMutableDictionary *root = (NSMutableDictionary *) plist;
-    if (root == nil) return NO;
-    NSMutableDictionary *capabilities = [root objectForKey:@"capabilities"];
-    if (capabilities == nil) return NO;
-
-    [capabilities removeObjectForKey:@"mars-volta"];
-    [capabilities removeObjectForKey:@"assistant"];
-
-    SavePropertyList(plist, "", url, kCFPropertyListBinaryFormat_v1_0);
-    return YES;
 }
 
 - (BOOL)remove {
@@ -219,10 +164,6 @@ void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPrope
     success = [self removeSharedCache];
     if (!success) { SPLog(@"Failed removing shared cache."); }
 
-    SPLog(@"Removing system file patches.");
-    success = [self removeCapabilities];
-    if (!success) { SPLog(@"Failed removing capabilities."); }
-
     // removing always succeeded: if something above failed,
     // it's only because it wasn't installed in the first place.
     return YES;
@@ -234,7 +175,7 @@ void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPrope
 int main(int argc, char **argv, char **envp) {
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
 
-    SPSiriRemover *remover = [[SPSiriRemover alloc] init];
+    BFRemover *remover = [[BFRemover alloc] init];
     BOOL success = [remover remove];
     [remover release];
 

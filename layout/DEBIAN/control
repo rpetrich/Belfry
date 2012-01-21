@@ -1,17 +1,14 @@
-Package: com.chpwn.spire
-Name: Spire
+Package: com.rpetrich.belfry
+Name: Belfry
 Section: System
-Description: A simple Siri installer.
-Version: 1.0
-Icon: file:///Library/PreferenceBundles/SpirePreferences.bundle/SpirePreferences@2x.png
-Pre-Depends: firmware (>= 5.0), firmware (<< 5.1)
-Conflicts: gsc.ipad, semitether, com.iphonerepocenter.enablemtgesturestheme, com.brbortscheller.homewallpaperkiller, com.brbortscheller.speedbooster, com.iphonerepocenter.disablemultitasking4xtheme, com.modmyi.ipadvoicecontrolenabler, com.modmyi.multitaskingdisabler, com.modmyi.windows7bluepad3as, com.modmyi.windows7bluepadas
-Depends: mobilesubstrate, preferenceloader
+Description: Install Clock app on iPad
+Version: 0.1
+Icon: file:///Applications/MobileTimer.app/icon@2x.png
+Pre-Depends: firmware (>= 5.0), firmware (<< 5.1), gsc.ipad
 Architecture: iphoneos-arm
-Depiction: http://chpwn.com/cydia/spire.html
-Homepage: http://chpwn.com/cydia/spire.html
-Author: chpwn <support@chpwn.com>
-Maintainer: chpwn <support@chpwn.com>
+Depiction: http://rpetri.ch/cydia/belfry/
+Homepage: http://rpetri.ch/cydia/belfry/
+Author: Ryan Petrich <rpetrich+belfry@gmail.com>
+Maintainer: chpwn <rpetrich+belfry@gmail.com>
 Sponsor: thebigboss.org <http://thebigboss.org>
-Tag: purpose::extension
-dev: chpwn
+dev: rpetrich

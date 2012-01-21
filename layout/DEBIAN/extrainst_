@@ -6,18 +6,20 @@ cydia=($CYDIA)
 if [[ $1 == install ]]; then
     # install only on install, not if upgrading, etc.
     # FIXME: for future ugprades, this logic may need to change
-    SpireInstaller
+    BelfryInstaller
 
     if [ $? = 0 ]; then
         # force a reboot on a successful install
         if [[ ${CYDIA+@} ]]; then
             eval "echo 'finish:reboot' >&${cydia[0]}"
         fi
+        
+        su mobile -c uicache
 
         exit 0
     else
         # cleanup to remove partial installs
-        SpireRemover
+        BelfryRemover
 
         exit 1
     fi
