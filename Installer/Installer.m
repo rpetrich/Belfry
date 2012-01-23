@@ -15,6 +15,20 @@
 #define kSPUpdateZIPRootPath @"AssetData/payload/replace/"
 #define kSPWorkingDirectory @"/tmp/belfry/"
 
+@interface UIImage (UIImageInternal)
++ (void)_flushCacheOnMemoryWarning:(id)warning;
++ (void)_flushSharedImageCache;
+- (id)_imageScaledToProportion:(float)proportion interpolationQuality:(CGInterpolationQuality)quality;
+- (id)_doubleBezeledImageWithExteriorShadowRed:(float)exteriorShadowRed green:(float)green blue:(float)blue alpha:(float)alpha interiorShadowRed:(float)red green:(float)green6 blue:(float)blue7 alpha:(float)alpha8 fillRed:(float)red9 green:(float)green10 blue:(float)blue11 alpha:(float)alpha12;
+- (id)_bezeledImageWithShadowRed:(float)shadowRed green:(float)green blue:(float)blue alpha:(float)alpha fillRed:(float)red green:(float)green6 blue:(float)blue7 alpha:(float)alpha8 drawShadow:(BOOL)shadow;
+- (id)_flatImageWithWhite:(float)white alpha:(float)alpha;
+- (BOOL)_isNamed;
+- (void)_setNamed:(BOOL)named;
+- (BOOL)_hasBeenCached;
+- (BOOL)_isCached;
+- (void)_setCached:(BOOL)cached;
+@end
+
 @interface UIImage (UIApplicationIconPrivate)
 + (UIImage *)_iconForResourceProxy:(id)resourceProxy format:(int)format;
 + (UIImage *)_iconForResourceProxy:(id)resourceProxy variant:(int)variant variantsScale:(float)scale;
@@ -304,6 +318,32 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
     return success;
 }
 
+- (BOOL)generateResizedImages {
+    NSFileManager *fm = [[NSFileManager alloc] init];
+    for (NSString *path in [self files]) {
+        if ([path hasSuffix:@"@2x.png"]) {
+            NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+            NSString *realPath = [@"/" stringByAppendingString:path];
+            NSString *resizedPath = [[realPath substringToIndex:[realPath length] - 7] stringByAppendingString:@".png"];
+            if ([fm fileExistsAtPath:realPath] && ![fm fileExistsAtPath:resizedPath]) {
+                UIImage *originalImage = [[UIImage alloc] initWithContentsOfFile:realPath];
+                UIImage *resizedImage = [originalImage _imageScaledToProportion:0.5f interpolationQuality:kCGInterpolationHigh];
+                [originalImage release];
+                BOOL success = [UIImagePNGRepresentation(resizedImage) writeToFile:resizedPath atomically:YES];
+                if (!success) {
+                    SPLog(@"Failed resizing %@", path);
+                    [pool drain];
+                    [fm release];
+                    return NO;
+                }
+            }
+            [pool drain];
+        }
+    }
+    [fm release];
+    return YES;
+}
+
 - (BOOL)createCache {
     BOOL success =  YES;
 
@@ -346,6 +386,10 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
     SPLog(@"Generating icons.");
     success = [self generateIcons];
     if (!success) { PartialZipRelease(info); [self cleanUp];  SPLog(@"Failed generating icons."); return success; }
+
+    SPLog(@"Generating resized images.");
+    success = [self generateResizedImages];
+    if (!success) { PartialZipRelease(info); [self cleanUp];  SPLog(@"Failed generating resized images."); return success; }
 
     SPLog(@"Setting up shared cache.");
     success = [self setupSharedCacheFromZip:info];
