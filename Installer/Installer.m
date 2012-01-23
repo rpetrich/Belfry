@@ -198,7 +198,7 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
     }
 }
 
-- (BOOL)applyAlternativeCacheToAppAtPath:(const char *)path {
+- (BOOL)applyAlternativeCacheAndDeviceFamilyToAppAtPath:(const char *)path {
     CFURLRef url = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, (uint8_t *) path, strlen(path), false);
 
     CFPropertyListRef plist; {
@@ -217,6 +217,16 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
     }
 
 	[self applyAlternativeSharedCacheToEnvironmentVariables:ev];
+
+    NSNumber *two = [NSNumber numberWithInteger:2];
+    NSMutableArray *df = [root objectForKey:@"UIDeviceFamily"];
+    if (![df containsObject:two]) {
+        if (df == nil) {
+            df = [NSMutableArray array];
+            [root setObject:ev forKey:@"UIDeviceFamily"];
+        }
+        [df addObject:two];
+    }
 
     SavePropertyList(plist, "", url, kCFPropertyListBinaryFormat_v1_0);
     return YES;
@@ -239,16 +249,16 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
         if (!success) { SPLog(@"Failed installing cache."); return success; }
     }
 
-    success = [self applyAlternativeCacheToAppAtPath:"/Applications/Preferences.app/Info.plist"];
+    success = [self applyAlternativeCacheAndDeviceFamilyToAppAtPath:"/Applications/Preferences.app/Info.plist"];
     if (!success) { SPLog(@"Failed applying cache to Preferences."); return success; }
 
-    success = [self applyAlternativeCacheToAppAtPath:"/Applications/MobileTimer.app/Info.plist"];
+    success = [self applyAlternativeCacheAndDeviceFamilyToAppAtPath:"/Applications/MobileTimer.app/Info.plist"];
     if (!success) { SPLog(@"Failed applying cache to MobileTimer."); return success; }
 
-    success = [self applyAlternativeCacheToAppAtPath:"/Applications/Weather.app/Info.plist"];
+    success = [self applyAlternativeCacheAndDeviceFamilyToAppAtPath:"/Applications/Weather.app/Info.plist"];
     if (!success) { SPLog(@"Failed applying cache to Weather."); return success; }
 
-    success = [self applyAlternativeCacheToAppAtPath:"/Applications/Stocks.app/Info.plist"];
+    success = [self applyAlternativeCacheAndDeviceFamilyToAppAtPath:"/Applications/Stocks.app/Info.plist"];
     if (!success) { SPLog(@"Failed applying cache to Stocks."); return success; }
 
     return success;
