@@ -253,6 +253,15 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
         }
         [df addObject:two];
     }
+    
+    NSMutableArray *icons = [root objectForKey:@"CFBundleIconFiles"];
+    if (![icons containsObject:@"Icon-72.png"]) {
+        if (icons == nil) {
+            icons = [NSMutableArray array];
+            [root setObject:icons forKey:@"CFBundleIconFiles"];
+        }
+        [icons addObject:@"Icon-72.png"];
+    }
 
     SavePropertyList(plist, "", url, kCFPropertyListBinaryFormat_v1_0);
     return YES;
@@ -278,6 +287,9 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
     success = [self applyAlternativeCacheAndDeviceFamilyToAppAtPath:"/Applications/MobileTimer.app/Info.plist"];
     if (!success) { SPLog(@"Failed applying cache to MobileTimer."); return success; }
 
+    success = [self applyAlternativeCacheAndDeviceFamilyToAppAtPath:"/Applications/VoiceMemos.app/Info.plist"];
+    if (!success) { SPLog(@"Failed applying cache to VoiceMemos."); return success; }
+
     success = [self applyAlternativeCacheAndDeviceFamilyToAppAtPath:"/Applications/Weather.app/Info.plist"];
     if (!success) { SPLog(@"Failed applying cache to Weather."); return success; }
 
@@ -287,15 +299,15 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
     return success;
 }
 
-- (BOOL)generateIconForAppAtPath:(NSString *)path
+- (BOOL)generateResizedIconAtPath:(NSString *)destPath from2xIconAtPath:(NSString *)sourcePath
 {
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-    UIImage *originalImage = [[UIImage alloc] initWithContentsOfFile:[path stringByAppendingPathComponent:@"icon@2x.png"]];
+    UIImage *originalImage = [[UIImage alloc] initWithContentsOfFile:sourcePath];
     CGImageRef croppedImage = CGImageCreateWithImageInRect(originalImage.CGImage, CGRectMake(2.0f, 1.0f, 114.0f, 114.0f));
     [originalImage release];
     UIImage *newImage = [[UIImage imageWithCGImage:croppedImage] _applicationIconImageForFormat:2 precomposed:YES];
     CGImageRelease(croppedImage);
-    BOOL result = [UIImagePNGRepresentation(newImage) writeToFile:[path stringByAppendingPathComponent:@"Icon-72.png"] atomically:YES];
+    BOOL result = [UIImagePNGRepresentation(newImage) writeToFile:destPath atomically:YES];
     [pool drain];
     return result;
 }
@@ -303,16 +315,19 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
 - (BOOL)generateIcons {
     BOOL success = YES;
 
-    success = [self generateIconForAppAtPath:@"/Applications/MobileTimer.app"];
+    success = [self generateResizedIconAtPath:@"/Applications/MobileTimer.app/Icon-72.png" from2xIconAtPath:@"/Applications/MobileTimer.app/icon@2x.png"];
     if (!success) { SPLog(@"Failed generating icon for MobileTimer."); return success; }
 
-    success = [self generateIconForAppAtPath:@"/Applications/Weather.app"];
+    success = [self generateResizedIconAtPath:@"/Applications/Weather.app/Icon-72.png" from2xIconAtPath:@"/Applications/Weather.app/icon@2x.png"];
     if (!success) { SPLog(@"Failed generating icon for Weather."); return success; }
 
-    success = [self generateIconForAppAtPath:@"/Applications/Stocks.app"];
+    success = [self generateResizedIconAtPath:@"/Applications/Weather.app/Icon-Celsius-72.png" from2xIconAtPath:@"/Applications/Weather.app/Icon-Celsius@2x.png"];
+    if (!success) { SPLog(@"Failed generating celsius icon for Weather."); return success; }
+
+    success = [self generateResizedIconAtPath:@"/Applications/Stocks.app/Icon-72.png" from2xIconAtPath:@"/Applications/Stocks.app/icon@2x.png"];
     if (!success) { SPLog(@"Failed generating icon for Stocks."); return success; }
 
-    success = [self generateIconForAppAtPath:@"/Applications/VoiceMemos.app"];
+    success = [self generateResizedIconAtPath:@"/Applications/VoiceMemos.app/Icon-72.png" from2xIconAtPath:@"/Applications/VoiceMemos.app/icon@2x.png"];
     if (!success) { SPLog(@"Failed generating icon for VoiceMemos."); return success; }
 
     return success;

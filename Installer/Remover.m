@@ -63,6 +63,7 @@ void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPrope
         // Generated icons
         [valid addObject:@"/Applications/MobileTimer.app/Icon-72.png"];
         [valid addObject:@"/Applications/Weather.app/Icon-72.png"];
+        [valid addObject:@"/Applications/Weather.app/Icon-Celsius-72.png"];
         [valid addObject:@"/Applications/Stocks.app/Icon-72.png"];
         [valid addObject:@"/Applications/VoiceMemos.app/Icon-72.png"];
 
