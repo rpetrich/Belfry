@@ -55,7 +55,7 @@ void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPrope
 
         for (NSString *file in files) {
             NSString *trimmedFile = [file stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
-            if ([trimmedFile length] && [trimmedFile hasSuffix:@"/"]) {
+            if ([trimmedFile length] && [trimmedFile hasSuffix:@"/"] && ![trimmedFile hasPrefix:@"#"]) {
                 [valid addObject:trimmedFile];
             }
         }
@@ -76,7 +76,7 @@ void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPrope
 
         for (NSString *file in files) {
             NSString *trimmedFile = [file stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
-            if ([trimmedFile length] && ![trimmedFile hasSuffix:@"/"]) {
+            if ([trimmedFile length] && ![trimmedFile hasSuffix:@"/"] && ![trimmedFile hasPrefix:@"#"]) {
                 [valid addObject:trimmedFile];
             }
         }
