@@ -97,12 +97,12 @@ void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPrope
     for (NSString *file in [self files]) {
         // Ignore errors here: even if one doesn't exist, still remove the others.
         success = [self removeFileAtPath:file];
-        if (!success) { SPLog(@"Failed removing file at path: /%@.", file); }
+        if (!success) { /*SPLog(@"Failed removing file at path: /%@.", file);*/ }
 
         if ([file hasSuffix:@"@2x.png"]) {
             NSString *resizedFile = [[file substringToIndex:[file length] - 7] stringByAppendingString:@".png"];
             success = [self removeFileAtPath:resizedFile];
-            if (!success) { SPLog(@"Failed removing file at path: /%@.", resizedFile); }
+            if (!success) { /*SPLog(@"Failed removing file at path: /%@.", resizedFile);*/ }
         }
     }
     

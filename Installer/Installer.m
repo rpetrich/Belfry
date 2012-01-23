@@ -120,7 +120,7 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
 			unsigned char *zipFileName = PartialZipCopyFileName(info, file);
 			NSString *diskFileName = [kSPWorkingDirectory stringByAppendingFormat:@"%s", zipFileName + fileData->charactersToSkip];
 			free(zipFileName);
-			SPLog(@"Downloading %s", zipFileName + fileData->charactersToSkip);
+			//SPLog(@"Downloading %s", zipFileName + fileData->charactersToSkip);
 
 		    [[NSFileManager defaultManager] createDirectoryAtPath:[diskFileName stringByDeletingLastPathComponent] withIntermediateDirectories:YES attributes:nil error:NULL];
 			fileData->fd = fopen([diskFileName UTF8String], "wb");
