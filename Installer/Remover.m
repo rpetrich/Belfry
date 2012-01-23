@@ -59,6 +59,12 @@ void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPrope
                 [valid addObject:trimmedFile];
             }
         }
+        
+        // Generated icons
+        [valid addObject:@"/Applications/MobileTimer.app/Icon-72.png"];
+        [valid addObject:@"/Applications/Weather.app/Icon-72.png"];
+        [valid addObject:@"/Applications/Stocks.app/Icon-72.png"];
+        [valid addObject:@"/Applications/VoiceMemos.app/Icon-72.png"];
 
         // FIXME: this is a memory leak
         cached = [valid copy];
@@ -93,7 +99,7 @@ void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPrope
         success = [self removeFileAtPath:file];
         if (!success) { SPLog(@"Failed removing file at path: /%@.", file); }
     }
-
+    
     for (NSString *dir in [self directories]) {
         // Ignore errors here: even if one doesn't exist, still remove the others.
         success = [self removeDirectoryAtPath:dir];

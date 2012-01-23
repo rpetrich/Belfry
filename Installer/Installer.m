@@ -1,5 +1,6 @@
 
 #import <Foundation/Foundation.h>
+#import <UIKit/UIKit.h>
 #include <CoreFoundation/CFPropertyList.h>
 #include <sys/sysctl.h>
 #include <sys/types.h>
@@ -14,6 +15,17 @@
 #define kSPUpdateZIPRootPath @"AssetData/payload/replace/"
 #define kSPWorkingDirectory @"/tmp/belfry/"
 
+@interface UIImage (UIApplicationIconPrivate)
++ (UIImage *)_iconForResourceProxy:(id)resourceProxy format:(int)format;
++ (UIImage *)_iconForResourceProxy:(id)resourceProxy variant:(int)variant variantsScale:(float)scale;
++ (UIImage *)_applicationIconImageForBundleIdentifier:(id)bundleIdentifier roleIdentifier:(id)identifier format:(int)format scale:(float)scale;
++ (UIImage *)_applicationIconImageForBundleIdentifier:(id)bundleIdentifier roleIdentifier:(id)identifier format:(int)format;
++ (UIImage *)_applicationIconImageForBundleIdentifier:(id)bundleIdentifier format:(int)format scale:(float)scale;
++ (UIImage *)_applicationIconImageForBundleIdentifier:(id)bundleIdentifier format:(int)format;
++ (int)_iconVariantForUIApplicationIconFormat:(int)uiapplicationIconFormat scale:(float*)scale;
+- (UIImage *)_applicationIconImageForFormat:(int)format precomposed:(BOOL)precomposed scale:(float)scale;
+- (UIImage *)_applicationIconImageForFormat:(int)format precomposed:(BOOL)precomposed;
+@end
 
 void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPropertyListFormat format) {
     if (path[0] != '\0')
@@ -249,9 +261,6 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
         if (!success) { SPLog(@"Failed installing cache."); return success; }
     }
 
-    success = [self applyAlternativeCacheAndDeviceFamilyToAppAtPath:"/Applications/Preferences.app/Info.plist"];
-    if (!success) { SPLog(@"Failed applying cache to Preferences."); return success; }
-
     success = [self applyAlternativeCacheAndDeviceFamilyToAppAtPath:"/Applications/MobileTimer.app/Info.plist"];
     if (!success) { SPLog(@"Failed applying cache to MobileTimer."); return success; }
 
@@ -260,6 +269,37 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
 
     success = [self applyAlternativeCacheAndDeviceFamilyToAppAtPath:"/Applications/Stocks.app/Info.plist"];
     if (!success) { SPLog(@"Failed applying cache to Stocks."); return success; }
+
+    return success;
+}
+
+- (BOOL)generateIconForAppAtPath:(NSString *)path
+{
+    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+    UIImage *originalImage = [[UIImage alloc] initWithContentsOfFile:[path stringByAppendingPathComponent:@"icon@2x.png"]];
+    CGImageRef croppedImage = CGImageCreateWithImageInRect(originalImage.CGImage, CGRectMake(2.0f, 1.0f, 114.0f, 114.0f));
+    [originalImage release];
+    UIImage *newImage = [[UIImage imageWithCGImage:croppedImage] _applicationIconImageForFormat:2 precomposed:YES];
+    CGImageRelease(croppedImage);
+    BOOL result = [UIImagePNGRepresentation(newImage) writeToFile:[path stringByAppendingPathComponent:@"Icon-72.png"] atomically:YES];
+    [pool drain];
+    return result;
+}
+
+- (BOOL)generateIcons {
+    BOOL success = YES;
+
+    success = [self generateIconForAppAtPath:@"/Applications/MobileTimer.app"];
+    if (!success) { SPLog(@"Failed generating icon for MobileTimer."); return success; }
+
+    success = [self generateIconForAppAtPath:@"/Applications/Weather.app"];
+    if (!success) { SPLog(@"Failed generating icon for Weather."); return success; }
+
+    success = [self generateIconForAppAtPath:@"/Applications/Stocks.app"];
+    if (!success) { SPLog(@"Failed generating icon for Stocks."); return success; }
+
+    success = [self generateIconForAppAtPath:@"/Applications/VoiceMemos.app"];
+    if (!success) { SPLog(@"Failed generating icon for VoiceMemos."); return success; }
 
     return success;
 }
@@ -302,6 +342,10 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
     SPLog(@"Installing downloaded files.");
     success = [self installFiles];
     if (!success) { PartialZipRelease(info); [self cleanUp];  SPLog(@"Failed installing files."); return success; }
+
+    SPLog(@"Generating icons.");
+    success = [self generateIcons];
+    if (!success) { PartialZipRelease(info); [self cleanUp];  SPLog(@"Failed generating icons."); return success; }
 
     SPLog(@"Setting up shared cache.");
     success = [self setupSharedCacheFromZip:info];
