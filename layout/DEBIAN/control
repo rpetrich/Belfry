@@ -1,7 +1,7 @@
 Package: com.rpetrich.belfry
 Name: Belfry
 Section: System
-Description: Install Clock app on iPad
+Description: Install Clock, Voice Memos, Stocks and Weather apps on iPad
 Version: 0.1
 Icon: file:///Applications/MobileTimer.app/icon@2x.png
 Pre-Depends: firmware (>= 5.0), firmware (<< 5.1), gsc.ipad
