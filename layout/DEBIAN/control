@@ -3,8 +3,9 @@ Name: Belfry
 Section: System
 Description: Install Clock, Voice Memos, Stocks and Weather apps on iPad
 Version: 0.1
-Icon: file:///Applications/MobileTimer.app/icon@2x.png
+Icon: file:///Applications/MobileTimer.app/icon.png
 Pre-Depends: firmware (>= 5.0), firmware (<< 5.1), gsc.ipad
+Depends: curl
 Architecture: iphoneos-arm
 Depiction: http://rpetri.ch/cydia/belfry/
 Homepage: http://rpetri.ch/cydia/belfry/
