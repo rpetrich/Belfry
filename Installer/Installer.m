@@ -300,6 +300,9 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
     success = [self updateAppInfoPlist:"/Applications/Calculator.app/Info.plist" alternativeCache:NO deviceFamily:NO largeIcon:YES];
     if (!success) { SPLog(@"Failed updating Info.plist on Calculator."); return success; }
 
+    success = [self updateAppInfoPlist:"/Applications/Compass.app/Info.plist" alternativeCache:NO deviceFamily:YES largeIcon:YES];
+    if (!success) { SPLog(@"Failed updating Info.plist on Compass."); return success; }
+
     success = [self updateAppInfoPlist:"/Applications/MobileTimer.app/Info.plist" alternativeCache:YES deviceFamily:YES largeIcon:YES];
     if (!success) { SPLog(@"Failed updating Info.plist on MobileTimer."); return success; }
 
@@ -333,6 +336,9 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
 
     success = [self generateResizedIconAtPath:@"/Applications/Calculator.app/Icon-72.png" from2xIconAtPath:@"/Applications/Calculator.app/icon@2x.png"];
     if (!success) { SPLog(@"Failed generating icon for Calculator."); return success; }
+
+    success = [self generateResizedIconAtPath:@"/Applications/Compass.app/Icon-72.png" from2xIconAtPath:@"/Applications/Compass.app/Icon@2x.png"];
+    if (!success) { SPLog(@"Failed generating icon for Compass."); return success; }
 
     success = [self generateResizedIconAtPath:@"/Applications/MobileTimer.app/Icon-72.png" from2xIconAtPath:@"/Applications/MobileTimer.app/icon@2x.png"];
     if (!success) { SPLog(@"Failed generating icon for MobileTimer."); return success; }
