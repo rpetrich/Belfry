@@ -224,7 +224,7 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
     }
 }
 
-- (BOOL)applyAlternativeCacheAndDeviceFamilyToAppAtPath:(const char *)path {
+- (BOOL)updateAppInfoPlist:(const char *)path alternativeCache:(BOOL)alternativeCache deviceFamily:(BOOL)deviceFamily largeIcon:(BOOL)largeIcon {
     CFURLRef url = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, (uint8_t *) path, strlen(path), false);
 
     CFPropertyListRef plist; {
@@ -233,37 +233,50 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
         plist = CFPropertyListCreateFromStream(kCFAllocatorDefault, stream, 0, kCFPropertyListMutableContainers, NULL, NULL);
         CFReadStreamClose(stream);
     }
-
+    
     NSMutableDictionary *root = (NSMutableDictionary *) plist;
     if (root == nil) return NO;
-    NSMutableDictionary *ev = [root objectForKey:@"LSEnvironment"];
-    if (ev == nil) {
-        ev = [NSMutableDictionary dictionary];
-        [root setObject:ev forKey:@"LSEnvironment"];
+
+    bool updated = false;
+
+    if (alternativeCache) {
+        NSMutableDictionary *ev = [root objectForKey:@"LSEnvironment"];
+        if (ev == nil) {
+            ev = [NSMutableDictionary dictionary];
+            [root setObject:ev forKey:@"LSEnvironment"];
+        }
+    	[self applyAlternativeSharedCacheToEnvironmentVariables:ev];
+    	updated = true;
     }
 
-	[self applyAlternativeSharedCacheToEnvironmentVariables:ev];
-
-    NSNumber *two = [NSNumber numberWithInteger:2];
-    NSMutableArray *df = [root objectForKey:@"UIDeviceFamily"];
-    if (![df containsObject:two]) {
-        if (df == nil) {
-            df = [NSMutableArray array];
-            [root setObject:ev forKey:@"UIDeviceFamily"];
+    if (deviceFamily) {
+        NSNumber *two = [NSNumber numberWithInteger:2];
+        NSMutableArray *df = [root objectForKey:@"UIDeviceFamily"];
+        if (![df containsObject:two]) {
+            if (df == nil) {
+                df = [NSMutableArray array];
+                [root setObject:df forKey:@"UIDeviceFamily"];
+            }
+            [df addObject:two];
+            updated = true;
         }
-        [df addObject:two];
     }
     
-    NSMutableArray *icons = [root objectForKey:@"CFBundleIconFiles"];
-    if (![icons containsObject:@"Icon-72.png"]) {
-        if (icons == nil) {
-            icons = [NSMutableArray array];
-            [root setObject:icons forKey:@"CFBundleIconFiles"];
+    if (largeIcon) {
+        NSMutableArray *icons = [root objectForKey:@"CFBundleIconFiles"];
+        if (![icons containsObject:@"Icon-72.png"]) {
+            if (icons == nil) {
+                icons = [NSMutableArray array];
+                [root setObject:icons forKey:@"CFBundleIconFiles"];
+            }
+            [icons addObject:@"Icon-72.png"];
+            updated = true;
         }
-        [icons addObject:@"Icon-72.png"];
     }
 
-    SavePropertyList(plist, "", url, kCFPropertyListBinaryFormat_v1_0);
+    if (updated)
+        SavePropertyList(plist, "", url, kCFPropertyListBinaryFormat_v1_0);
+    CFRelease(url);
     return YES;
 }
 
@@ -284,17 +297,20 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
         if (!success) { SPLog(@"Failed installing cache."); return success; }
     }
 
-    success = [self applyAlternativeCacheAndDeviceFamilyToAppAtPath:"/Applications/MobileTimer.app/Info.plist"];
-    if (!success) { SPLog(@"Failed applying cache to MobileTimer."); return success; }
+    success = [self updateAppInfoPlist:"/Applications/Calculator.app/Info.plist" alternativeCache:NO deviceFamily:NO largeIcon:YES];
+    if (!success) { SPLog(@"Failed updating Info.plist on Calculator."); return success; }
 
-    success = [self applyAlternativeCacheAndDeviceFamilyToAppAtPath:"/Applications/VoiceMemos.app/Info.plist"];
-    if (!success) { SPLog(@"Failed applying cache to VoiceMemos."); return success; }
+    success = [self updateAppInfoPlist:"/Applications/MobileTimer.app/Info.plist" alternativeCache:YES deviceFamily:YES largeIcon:YES];
+    if (!success) { SPLog(@"Failed updating Info.plist on MobileTimer."); return success; }
 
-    success = [self applyAlternativeCacheAndDeviceFamilyToAppAtPath:"/Applications/Weather.app/Info.plist"];
-    if (!success) { SPLog(@"Failed applying cache to Weather."); return success; }
+    success = [self updateAppInfoPlist:"/Applications/VoiceMemos.app/Info.plist" alternativeCache:NO deviceFamily:YES largeIcon:YES];
+    if (!success) { SPLog(@"Failed updating Info.plist on VoiceMemos."); return success; }
 
-    success = [self applyAlternativeCacheAndDeviceFamilyToAppAtPath:"/Applications/Stocks.app/Info.plist"];
-    if (!success) { SPLog(@"Failed applying cache to Stocks."); return success; }
+    success = [self updateAppInfoPlist:"/Applications/Weather.app/Info.plist" alternativeCache:YES deviceFamily:NO largeIcon:YES];
+    if (!success) { SPLog(@"Failed updating Info.plist on Weather."); return success; }
+
+    success = [self updateAppInfoPlist:"/Applications/Stocks.app/Info.plist" alternativeCache:YES deviceFamily:YES largeIcon:YES];
+    if (!success) { SPLog(@"Failed updating Info.plist on Stocks."); return success; }
 
     return success;
 }
@@ -314,6 +330,9 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
 
 - (BOOL)generateIcons {
     BOOL success = YES;
+
+    success = [self generateResizedIconAtPath:@"/Applications/Calculator.app/Icon-72.png" from2xIconAtPath:@"/Applications/Calculator.app/icon@2x.png"];
+    if (!success) { SPLog(@"Failed generating icon for Calculator."); return success; }
 
     success = [self generateResizedIconAtPath:@"/Applications/MobileTimer.app/Icon-72.png" from2xIconAtPath:@"/Applications/MobileTimer.app/icon@2x.png"];
     if (!success) { SPLog(@"Failed generating icon for MobileTimer."); return success; }
