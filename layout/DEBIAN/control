@@ -2,7 +2,7 @@ Package: com.rpetrich.belfry
 Name: Belfry
 Section: System
 Description: Install Clock, Calculator, Compass, Voice Memos, Stocks and Weather apps on iPad
-Version: 0.3
+Version: 1.0
 Icon: file:///Applications/MobileTimer.app/icon.png
 Pre-Depends: firmware (>= 5.0), firmware (<< 5.1), gsc.ipad
 Depends: curl
@@ -10,6 +10,7 @@ Architecture: iphoneos-arm
 Depiction: http://rpetri.ch/cydia/belfry/
 Homepage: http://rpetri.ch/cydia/belfry/
 Author: Ryan Petrich <rpetrich+belfry@gmail.com>
-Maintainer: chpwn <rpetrich+belfry@gmail.com>
+Maintainer: BigBoss <bigboss@thebigboss.org>
 Sponsor: thebigboss.org <http://thebigboss.org>
 dev: rpetrich
+Tag: purpose::uikit, role::enduser
