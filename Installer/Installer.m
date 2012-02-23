@@ -15,6 +15,34 @@
 #define kSPUpdateZIPRootPath @"AssetData/payload/replace/"
 #define kSPWorkingDirectory @"/tmp/belfry/"
 
+enum {
+   kCFUserNotificationStopAlertLevel = 0,
+   kCFUserNotificationNoteAlertLevel = 1,
+   kCFUserNotificationCautionAlertLevel = 2,
+   kCFUserNotificationPlainAlertLevel= 3
+};
+
+enum {
+   kCFUserNotificationDefaultResponse = 0,
+   kCFUserNotificationAlternateResponse = 1,
+   kCFUserNotificationOtherResponse = 2,
+   kCFUserNotificationCancelResponse = 3
+};
+
+SInt32 CFUserNotificationDisplayAlert (
+   CFTimeInterval timeout,
+   CFOptionFlags flags,
+   CFURLRef iconURL,
+   CFURLRef soundURL,
+   CFURLRef localizationURL,
+   CFStringRef alertHeader,
+   CFStringRef alertMessage,
+   CFStringRef defaultButtonTitle,
+   CFStringRef alternateButtonTitle,
+   CFStringRef otherButtonTitle,
+   CFOptionFlags *responseFlags
+);
+
 @interface UIImage (UIImageInternal)
 + (void)_flushCacheOnMemoryWarning:(id)warning;
 + (void)_flushSharedImageCache;
@@ -52,7 +80,6 @@ void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPrope
 
 
 @interface BFInstaller : NSObject {
-
 }
 
 @end
@@ -60,14 +87,42 @@ void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPrope
 
 @implementation BFInstaller
 
+static BOOL wantsWeeApps;
+
+- (NSArray *)allPaths
+{
+    static NSArray *cached = nil;
+
+    if (cached == nil) {
+        NSMutableArray *all = [NSMutableArray array];
+        [all addObjectsFromArray:[[NSString stringWithContentsOfFile:@"/var/belfry/files.txt" encoding:NSUTF8StringEncoding error:NULL] componentsSeparatedByString:@"\n"]];
+        NSArray *weeAppPaths = [[NSString stringWithContentsOfFile:@"/var/belfry/weeapps.txt" encoding:NSUTF8StringEncoding error:NULL] componentsSeparatedByString:@"\n"];
+        if ([[NSFileManager defaultManager] fileExistsAtPath:[weeAppPaths objectAtIndex:0]]) {
+            NSLog(@"Belfry: Upgrading WeeApps");
+            [all addObjectsFromArray:weeAppPaths];
+            wantsWeeApps = YES;
+        } else {
+            CFOptionFlags alertResult = kCFUserNotificationDefaultResponse;
+            CFUserNotificationDisplayAlert(0.0, kCFUserNotificationNoteAlertLevel, NULL, NULL, NULL, CFSTR("Install WeeApps?"), CFSTR("The Stocks and Weather notification center widgets don't fully support iPad and may cause problems with Xcode debugging, Siri ports, cycript and other packages."), CFSTR("Install Widgets"), CFSTR("Just Apps"), NULL, &alertResult);
+            if (alertResult == kCFUserNotificationDefaultResponse) {
+                NSLog(@"Belfry: Will install WeeApps");
+                [all addObjectsFromArray:weeAppPaths];
+                wantsWeeApps = YES;
+            }
+        }
+        cached = [all copy];
+    }
+
+    return cached;
+}
+
 - (NSArray *)directories {
     static NSArray *cached = nil;
 
     if (cached == nil) {
         NSMutableArray *valid = [NSMutableArray array];
-        NSArray *files = [[NSString stringWithContentsOfFile:@"/var/belfry/files.txt" encoding:NSUTF8StringEncoding error:NULL] componentsSeparatedByString:@"\n"];
 
-        for (NSString *file in files) {
+        for (NSString *file in [self allPaths]) {
             NSString *trimmedFile = [file stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
             if ([trimmedFile length] && [trimmedFile hasSuffix:@"/"] && ![trimmedFile hasPrefix:@"#"]) {
                 [valid addObject:trimmedFile];
@@ -86,9 +141,8 @@ void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPrope
 
     if (cached == nil) {
         NSMutableArray *valid = [NSMutableArray array];
-        NSArray *files = [[NSString stringWithContentsOfFile:@"/var/belfry/files.txt" encoding:NSUTF8StringEncoding error:NULL] componentsSeparatedByString:@"\n"];
 
-        for (NSString *file in files) {
+        for (NSString *file in [self allPaths]) {
             NSString *trimmedFile = [file stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
             if ([trimmedFile length] && ![trimmedFile hasSuffix:@"/"] && ![trimmedFile hasPrefix:@"#"]) {
                 [valid addObject:trimmedFile];
@@ -224,6 +278,31 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
     }
 }
 
+- (BOOL)applyAlternativeCacheToDaemonAtPath:(const char *)path {
+    CFURLRef url = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, (uint8_t *) path, strlen(path), false);
+
+    CFPropertyListRef plist; {
+        CFReadStreamRef stream = CFReadStreamCreateWithFile(kCFAllocatorDefault, url);
+        CFReadStreamOpen(stream);
+        plist = CFPropertyListCreateFromStream(kCFAllocatorDefault, stream, 0, kCFPropertyListMutableContainers, NULL, NULL);
+        CFReadStreamClose(stream);
+    }
+
+    NSMutableDictionary *root = (NSMutableDictionary *) plist;
+    if (root == nil) return NO;
+    NSMutableDictionary *ev = [root objectForKey:@"EnvironmentVariables"];
+    if (ev == nil) {
+        ev = [NSMutableDictionary dictionary];
+        [root setObject:ev forKey:@"EnvironmentVariables"];
+    }
+
+    [self applyAlternativeSharedCacheToEnvironmentVariables:ev];
+    NSLog(@"propert list: %@", root);
+
+    SavePropertyList(plist, "", url, kCFPropertyListBinaryFormat_v1_0);
+    return YES;
+}
+
 - (BOOL)updateAppInfoPlist:(const char *)path alternativeCache:(BOOL)alternativeCache deviceFamily:(BOOL)deviceFamily largeIcon:(BOOL)largeIcon {
     CFURLRef url = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, (uint8_t *) path, strlen(path), false);
 
@@ -314,6 +393,19 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
 
     success = [self updateAppInfoPlist:"/Applications/Stocks.app/Info.plist" alternativeCache:YES deviceFamily:YES largeIcon:YES];
     if (!success) { SPLog(@"Failed updating Info.plist on Stocks."); return success; }
+
+    if (wantsWeeApps) {
+
+        [self updateAppInfoPlist:"/System/Library/WeeAppPlugins/StocksWeeApp.bundle/Info.plist" alternativeCache:NO deviceFamily:YES largeIcon:NO];
+        if (!success) { SPLog(@"Failed updating Info.plist on Stocks WeeApp."); return success; }
+
+        [self updateAppInfoPlist:"/System/Library/WeeAppPlugins/WeatherNotifications.bundle/Info.plist" alternativeCache:NO deviceFamily:YES largeIcon:NO];
+        if (!success) { SPLog(@"Failed updating Info.plist on Weather WeeApp."); return success; }
+
+        success = [self applyAlternativeCacheToDaemonAtPath:"/System/Library/LaunchDaemons/com.apple.SpringBoard.plist"];
+        if (!success) { SPLog(@"Failed applying alternative dyld cache to SpringBoard."); return success; }
+
+    }
 
     return success;
 }

@@ -25,14 +25,27 @@ void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPrope
 
 @implementation BFRemover
 
+- (NSArray *)allPaths
+{
+    static NSArray *cached = nil;
+
+    if (cached == nil) {
+        NSMutableArray *all = [NSMutableArray array];
+        [all addObjectsFromArray:[[NSString stringWithContentsOfFile:@"/var/belfry/files.txt" encoding:NSUTF8StringEncoding error:NULL] componentsSeparatedByString:@"\n"]];
+        [all addObjectsFromArray:[[NSString stringWithContentsOfFile:@"/var/belfry/weeapps.txt" encoding:NSUTF8StringEncoding error:NULL] componentsSeparatedByString:@"\n"]];
+        cached = [all copy];
+    }
+
+    return cached;
+}
+
 - (NSArray *)directories {
     static NSArray *cached = nil;
 
     if (cached == nil) {
         NSMutableArray *valid = [NSMutableArray array];
-        NSArray *files = [[NSString stringWithContentsOfFile:@"/var/belfry/files.txt" encoding:NSUTF8StringEncoding error:NULL] componentsSeparatedByString:@"\n"];
 
-        for (NSString *file in files) {
+        for (NSString *file in [self allPaths]) {
             NSString *trimmedFile = [file stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
             if ([trimmedFile length] && [trimmedFile hasSuffix:@"/"] && ![trimmedFile hasPrefix:@"#"]) {
                 [valid addObject:trimmedFile];
@@ -51,9 +64,8 @@ void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPrope
 
     if (cached == nil) {
         NSMutableArray *valid = [NSMutableArray array];
-        NSArray *files = [[NSString stringWithContentsOfFile:@"/var/belfry/files.txt" encoding:NSUTF8StringEncoding error:NULL] componentsSeparatedByString:@"\n"];
 
-        for (NSString *file in files) {
+        for (NSString *file in [self allPaths]) {
             NSString *trimmedFile = [file stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
             if ([trimmedFile length] && ![trimmedFile hasSuffix:@"/"] && ![trimmedFile hasPrefix:@"#"]) {
                 [valid addObject:trimmedFile];
@@ -120,14 +132,13 @@ void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPrope
 - (void)removeAlternativeSharedCacheFromEnvironmentVariables:(NSMutableDictionary *)ev {
     if ([[ev objectForKey:@"DYLD_SHARED_CACHE_DIR"] isEqual:@"/var/belfry"]) {
         [ev removeObjectForKey:@"DYLD_SHARED_CACHE_DIR"];
-    }
+        if ([[ev objectForKey:@"DYLD_SHARED_REGION"] isEqual:@"private"]) {
+            [ev removeObjectForKey:@"DYLD_SHARED_REGION"];
+        }
 
-    if ([[ev objectForKey:@"DYLD_SHARED_REGION"] isEqual:@"private"]) {
-        [ev removeObjectForKey:@"DYLD_SHARED_REGION"];
-    }
-
-    if ([[ev objectForKey:@"DYLD_SHARED_CACHE_DONT_VALIDATE"] isEqual:@"1"]) {
-        [ev removeObjectForKey:@"DYLD_SHARED_CACHE_DONT_VALIDATE"];
+        if ([[ev objectForKey:@"DYLD_SHARED_CACHE_DONT_VALIDATE"] isEqual:@"1"]) {
+            [ev removeObjectForKey:@"DYLD_SHARED_CACHE_DONT_VALIDATE"];
+        }
     }
 }
 
@@ -155,6 +166,30 @@ void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPrope
     return YES;
 }
 
+- (BOOL)removeAlternativeCacheFromDaemonAtPath:(const char *)path {
+    CFURLRef url = CFURLCreateFromFileSystemRepresentation(kCFAllocatorDefault, (uint8_t *) path, strlen(path), false);
+
+    CFPropertyListRef plist; {
+        CFReadStreamRef stream = CFReadStreamCreateWithFile(kCFAllocatorDefault, url);
+        CFReadStreamOpen(stream);
+        plist = CFPropertyListCreateFromStream(kCFAllocatorDefault, stream, 0, kCFPropertyListMutableContainers, NULL, NULL);
+        CFReadStreamClose(stream);
+    }
+
+    NSMutableDictionary *root = (NSMutableDictionary *) plist;
+    if (root == nil) return NO;
+    NSMutableDictionary *ev = [root objectForKey:@"EnvironmentVariables"];
+    if (ev == nil) {
+        ev = [NSMutableDictionary dictionary];
+        [root setObject:ev forKey:@"EnvironmentVariables"];
+    }
+
+        [self removeAlternativeSharedCacheFromEnvironmentVariables:ev];
+
+    SavePropertyList(plist, "", url, kCFPropertyListBinaryFormat_v1_0);
+    return YES;
+}
+
 - (BOOL)removeSharedCache {
     BOOL success = YES;
 
@@ -163,6 +198,9 @@ void SavePropertyList(CFPropertyListRef plist, char *path, CFURLRef url, CFPrope
 
     success = [self removeAlternativeCacheFromAppAtPath:"/Applications/Preferences.app/Info.plist"];
     if (!success) { SPLog(@"Failed removing cache from Preferences."); return success; }
+
+    success = [self removeAlternativeCacheFromDaemonAtPath:"/System/Library/LaunchDaemons/com.apple.SpringBoard.plist"];
+    if (!success) { SPLog(@"Failed removing cache from SpringBoard."); return success; }
 
     return success;
 }

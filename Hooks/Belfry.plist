@@ -1,1 +1,1 @@
-{ Filter = { Bundles = ( "com.apple.springboard", "com.apple.stocks", "com.apple.VoiceMemos", "com.apple.mobiletimer", "com.apple.weather" ); }; }
+{ Filter = { Bundles = ( "com.apple.springboard", "com.apple.stocks", "com.apple.VoiceMemos", "com.apple.mobiletimer", "com.apple.weather", "com.apple.Preferences" ); }; }
