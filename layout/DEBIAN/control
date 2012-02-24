@@ -5,6 +5,7 @@ Description: Install Clock, Calculator, Compass, Voice Memos, Stocks and Weather
 Version: 1.0
 Icon: file:///Applications/MobileTimer.app/icon.png
 Pre-Depends: firmware (>= 5.0), firmware (<< 5.1), gsc.ipad
+Conflicts: com.chpwn.spire
 Depends: curl
 Architecture: iphoneos-arm
 Depiction: http://rpetri.ch/cydia/belfry/
