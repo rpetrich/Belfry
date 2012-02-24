@@ -32,17 +32,17 @@
 
 - (void)launch
 {
+    NSMutableDictionary *dict = [[self seatbeltEnvironmentVariables] mutableCopy] ?: [[NSMutableDictionary alloc] init];
     NSDictionary *LSEnvironment = [[[self bundle] infoDictionary] objectForKey:@"LSEnvironment"];
-    if (LSEnvironment) {
-        NSMutableDictionary *dict = [[self seatbeltEnvironmentVariables] mutableCopy];
-        if (dict) {
-            [dict addEntriesFromDictionary:LSEnvironment];
-            [self setSeatbeltEnvironmentVariables:dict];
-            [dict release];
-        } else {
-            [self setSeatbeltEnvironmentVariables:LSEnvironment];
-        }
+    if ([[[NSProcessInfo processInfo].environment objectForKey:@"DYLD_SHARED_CACHE_DIR"] isEqualToString:@"/var/belfry"]) {
+        [dict setObject:@"/System/Library/Caches/com.apple.dyld" forKey:@"DYLD_SHARED_CACHE_DIR"];
+        [dict setObject:@"public" forKey:@"DYLD_SHARED_REGION"];
+        [dict setObject:@"0" forKey:@"DYLD_SHARED_CACHE_DONT_VALIDATE"];
     }
+    if (LSEnvironment)
+        [dict addEntriesFromDictionary:LSEnvironment];
+    [self setSeatbeltEnvironmentVariables:dict];
+    [dict release];
     %orig;
 }
 
