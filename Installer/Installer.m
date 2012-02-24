@@ -97,7 +97,7 @@ static BOOL wantsWeeApps;
         NSMutableArray *all = [NSMutableArray array];
         [all addObjectsFromArray:[[NSString stringWithContentsOfFile:@"/var/belfry/files.txt" encoding:NSUTF8StringEncoding error:NULL] componentsSeparatedByString:@"\n"]];
         NSArray *weeAppPaths = [[NSString stringWithContentsOfFile:@"/var/belfry/weeapps.txt" encoding:NSUTF8StringEncoding error:NULL] componentsSeparatedByString:@"\n"];
-        if ([[NSFileManager defaultManager] fileExistsAtPath:[@"/" stringByAppendingString:[weeAppPaths objectAtIndex:0]]]) {
+        if ([[NSFileManager defaultManager] fileExistsAtPath:[@"/" stringByAppendingString:[weeAppPaths lastObject]]]) {
             [all addObjectsFromArray:weeAppPaths];
             wantsWeeApps = YES;
         } else {
