@@ -376,7 +376,7 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
     success = [self updateAppInfoPlist:"/Applications/Calculator.app/Info.plist" alternativeCache:NO deviceFamily:NO largeIcon:YES];
     if (!success) { SPLog(@"Failed updating Info.plist on Calculator."); return success; }
 
-    success = [self updateAppInfoPlist:"/Applications/Compass.app/Info.plist" alternativeCache:NO deviceFamily:YES largeIcon:YES];
+    success = [self updateAppInfoPlist:"/Applications/Compass.app/Info.plist" alternativeCache:NO deviceFamily:NO largeIcon:YES];
     if (!success) { SPLog(@"Failed updating Info.plist on Compass."); return success; }
 
     success = [self updateAppInfoPlist:"/Applications/MobileTimer.app/Info.plist" alternativeCache:YES deviceFamily:YES largeIcon:YES];
