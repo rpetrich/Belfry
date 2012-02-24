@@ -295,7 +295,6 @@ size_t downloadFileCallback(ZipInfo* info, CDFile* file, unsigned char *buffer, 
     }
 
     [self applyAlternativeSharedCacheToEnvironmentVariables:ev];
-    NSLog(@"propert list: %@", root);
 
     SavePropertyList(plist, "", url, kCFPropertyListBinaryFormat_v1_0);
     return YES;
