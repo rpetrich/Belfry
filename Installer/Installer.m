@@ -97,15 +97,13 @@ static BOOL wantsWeeApps;
         NSMutableArray *all = [NSMutableArray array];
         [all addObjectsFromArray:[[NSString stringWithContentsOfFile:@"/var/belfry/files.txt" encoding:NSUTF8StringEncoding error:NULL] componentsSeparatedByString:@"\n"]];
         NSArray *weeAppPaths = [[NSString stringWithContentsOfFile:@"/var/belfry/weeapps.txt" encoding:NSUTF8StringEncoding error:NULL] componentsSeparatedByString:@"\n"];
-        if ([[NSFileManager defaultManager] fileExistsAtPath:[weeAppPaths objectAtIndex:0]]) {
-            NSLog(@"Belfry: Upgrading WeeApps");
+        if ([[NSFileManager defaultManager] fileExistsAtPath:[@"/" stringByAppendingString:[weeAppPaths objectAtIndex:0]]]) {
             [all addObjectsFromArray:weeAppPaths];
             wantsWeeApps = YES;
         } else {
             CFOptionFlags alertResult = kCFUserNotificationDefaultResponse;
             CFUserNotificationDisplayAlert(0.0, kCFUserNotificationNoteAlertLevel, NULL, NULL, NULL, CFSTR("Install WeeApps?"), CFSTR("The Stocks and Weather notification center widgets don't fully support iPad and may cause problems with Xcode debugging, Siri ports, cycript and other packages."), CFSTR("Install Widgets"), CFSTR("Just Apps"), NULL, &alertResult);
             if (alertResult == kCFUserNotificationDefaultResponse) {
-                NSLog(@"Belfry: Will install WeeApps");
                 [all addObjectsFromArray:weeAppPaths];
                 wantsWeeApps = YES;
             }
